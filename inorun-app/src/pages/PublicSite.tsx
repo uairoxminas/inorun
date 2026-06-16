@@ -86,10 +86,12 @@ export default function PublicSite({ onRegister, onAdmin, totalInscritos, onEven
         <div className="section-wrap relative py-14 md:py-20">
           <Eyebrow>Corrida InoLive · Paraopeba – MG</Eyebrow>
           <div className="mt-4">
-            <span className="font-display font-extrabold italic uppercase block leading-[0.82] tracking-[-0.01em] text-brand-purple"
-              style={{ fontSize: 'clamp(72px,17vw,160px)' }}>
-              INO<span className="text-brand-purple-mid">RUN</span>
-            </span>
+            <img
+              src="/logo.svg"
+              alt="INO RUN 2026"
+              style={{ width: 'clamp(280px,45vw,620px)', height: 'auto', display: 'block' }}
+              className="mb-3"
+            />
             <span className="font-display font-bold italic uppercase tracking-[0.04em] text-brand-ink"
               style={{ fontSize: 'clamp(22px,5vw,40px)' }}>
               2026 ·{' '}
