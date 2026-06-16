@@ -1,228 +1,159 @@
-// src/pages/AdminPanel.tsx — Painel do organizador com dados reais do Supabase
+// src/pages/AdminPanel.tsx — Shell do painel do organizador com autenticação e navegação
 
 import { useState, useEffect } from 'react';
 import Logo from '../components/Logo';
-import { getInscritos, calcularMetricas, gerarCSV } from '../services/adminService';
+import AdminLogin from './AdminLogin';
+import AdminDashboard from './admin/AdminDashboard';
+import GestaoInscricoes from './admin/GestaoInscricoes';
+import GestaoLotesCupons from './admin/GestaoLotesCupons';
+import Cronograma from './admin/Cronograma';
+import Financeiro from './admin/Financeiro';
+import CheckIn from './admin/CheckIn';
+import { getInscritos, calcularMetricas } from '../services/adminService';
 import type { InscritoRow, MetricasAdmin } from '../services/adminService';
-import { formataBRL } from '../lib/precoLoteAtual';
 
 interface Props { onBack: () => void; totalInscritos: number; }
 
-function MetricCard({ label, value, sub, destaque }: { label: string; value: string; sub?: string; destaque?: boolean }) {
-  return (
-    <div className={`card p-5 ${destaque ? 'border-brand-purple-mid' : ''}`}>
-      <div className="text-[12px] text-brand-muted tracking-[0.1em] uppercase font-medium">{label}</div>
-      <div className={`font-display font-extrabold text-[28px] mt-1.5 ${destaque ? 'text-brand-purple' : 'text-brand-purple'}`}>{value}</div>
-      {sub && <div className="text-[12px] text-brand-muted mt-0.5">{sub}</div>}
-    </div>
-  );
-}
+type Secao = 'dashboard' | 'inscricoes' | 'lotes' | 'cronograma' | 'financeiro' | 'checkin';
 
-export default function AdminPanel({ onBack, totalInscritos }: Props) {
+const NAV: { id: Secao; label: string; icon: string }[] = [
+  { id: 'dashboard',  label: 'Dashboard',     icon: '📊' },
+  { id: 'inscricoes', label: 'Inscrições',     icon: '🏃' },
+  { id: 'lotes',      label: 'Lotes & Cupons', icon: '🎟️' },
+  { id: 'cronograma', label: 'Cronograma',     icon: '🕐' },
+  { id: 'financeiro', label: 'Financeiro',     icon: '💰' },
+  { id: 'checkin',    label: 'Check-in',       icon: '✅' },
+];
+
+export default function AdminPanel({ onBack }: Props) {
+  // Auth
+  const [autenticado, setAutenticado] = useState(
+    sessionStorage.getItem('admin_auth') === 'ok'
+  );
+
+  // Dados globais (carregados uma vez, passados aos módulos)
   const [inscritos, setInscritos]   = useState<InscritoRow[]>([]);
   const [metricas, setMetricas]     = useState<MetricasAdmin | null>(null);
   const [loading, setLoading]       = useState(true);
-  const [busca, setBusca]           = useState('');
-  const [filtroStatus, setFiltroStatus] = useState<string>('todos');
+  const [eventoId, setEventoId]     = useState('');
+  const [secao, setSecao]           = useState<Secao>('dashboard');
+  const [menuAberto, setMenuAberto] = useState(false);
 
-  useEffect(() => {
-    getInscritos()
-      .then(rows => {
-        setInscritos(rows);
-        setMetricas(calcularMetricas(rows));
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
-
-  const inscritosFiltrados = inscritos.filter(r => {
-    const matchBusca = !busca ||
-      r.nome.toLowerCase().includes(busca.toLowerCase()) ||
-      r.categoria?.toLowerCase().includes(busca.toLowerCase()) ||
-      r.prova?.toLowerCase().includes(busca.toLowerCase()) ||
-      r.email?.toLowerCase().includes(busca.toLowerCase());
-    const matchStatus = filtroStatus === 'todos' || r.status === filtroStatus;
-    return matchBusca && matchStatus;
-  });
-
-  const handleExportCSV = () => {
-    const csv  = gerarCSV(inscritosFiltrados);
-    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url; a.download = `inorun-inscritos-${new Date().toISOString().slice(0,10)}.csv`;
-    a.click(); URL.revokeObjectURL(url);
-  };
-
-  const handleRecarregar = async () => {
+  const carregar = async () => {
     setLoading(true);
-    const rows = await getInscritos().catch(() => inscritos);
+    const rows = await getInscritos();
     setInscritos(rows);
     setMetricas(calcularMetricas(rows));
     setLoading(false);
   };
 
+  // Busca o event_id
+  useEffect(() => {
+    if (!autenticado) return;
+    import('../lib/supabase').then(({ supabase }) => {
+      supabase.from('event').select('id').eq('slug', 'inorun-2026').single()
+        .then(({ data }) => setEventoId(data?.id ?? ''));
+    });
+    carregar();
+  }, [autenticado]);
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('admin_auth');
+    setAutenticado(false);
+  };
+
+  if (!autenticado) {
+    return <AdminLogin onLogin={() => setAutenticado(true)} />;
+  }
+
   return (
-    <div className="bg-brand-bg text-brand-ink font-sans min-h-screen">
-      <div className="mx-auto px-5 py-6 max-w-[1000px]">
+    <div className="bg-brand-bg text-brand-ink font-sans min-h-screen flex">
 
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <button onClick={onBack} className="btn-ghost">← Ver site público</button>
-          <div className="flex items-center gap-2">
-            <Logo height={26} />
-            <span className="text-brand-muted text-[14px]">· Painel do Organizador</span>
-          </div>
+      {/* ── Sidebar ── */}
+      <aside className={`
+        fixed inset-y-0 left-0 z-30 bg-white border-r border-brand-lilac-mid
+        flex flex-col transition-transform duration-300
+        ${menuAberto ? 'translate-x-0' : '-translate-x-full'}
+        md:relative md:translate-x-0 md:w-60
+      `}>
+        {/* Logo */}
+        <div className="p-5 border-b border-brand-lilac-mid flex items-center justify-between">
+          <Logo height={26} />
+          <button onClick={() => setMenuAberto(false)} className="md:hidden text-brand-muted">×</button>
         </div>
 
-        {/* Info box */}
-        <div className="mt-4 bg-brand-lilac border border-brand-lilac-mid rounded-xl px-4 py-3 text-[13px] text-brand-purple-dark">
-          <strong>Painel do Organizador — INO RUN 2026:</strong> dados em tempo real do Supabase.
-          Métricas, inscritos por prova, exportação CSV. Acesso protegido por RLS.
-        </div>
+        {/* Nav */}
+        <nav className="flex-1 overflow-y-auto py-3">
+          {NAV.map(n => (
+            <button key={n.id} id={`nav-admin-${n.id}`}
+              onClick={() => { setSecao(n.id); setMenuAberto(false); }}
+              className={`w-full flex items-center gap-3 px-5 py-3.5 text-left text-[14px] font-medium transition-all duration-150
+                ${secao === n.id
+                  ? 'bg-brand-lilac text-brand-purple border-r-[3px] border-brand-purple'
+                  : 'text-brand-muted hover:text-brand-ink hover:bg-brand-bg'
+                }`}>
+              <span className="text-lg">{n.icon}</span>
+              {n.label}
+              {n.id === 'dashboard' && metricas && (
+                <span className="ml-auto font-display font-bold text-[12px] text-brand-purple">
+                  {metricas.total}
+                </span>
+              )}
+              {n.id === 'checkin' && metricas && (
+                <span className="ml-auto font-display font-bold text-[12px] text-green-600">
+                  {metricas.checkins}
+                </span>
+              )}
+            </button>
+          ))}
+        </nav>
 
-        <div className="flex items-center justify-between mt-5">
-          <h1 className="font-display font-extrabold italic uppercase text-[36px] text-brand-ink leading-none">Visão geral</h1>
-          <button onClick={handleRecarregar} disabled={loading}
-            className="btn-ghost text-[13px]">
-            {loading ? '↺ Atualizando...' : '↺ Atualizar'}
+        {/* Footer */}
+        <div className="p-4 border-t border-brand-lilac-mid">
+          <button onClick={onBack} className="btn-ghost text-[12px] w-full mb-2">← Ver site</button>
+          <button onClick={handleLogout} className="text-[12px] text-brand-muted hover:text-red-500 transition-colors w-full text-center">
+            Sair do painel
           </button>
         </div>
+      </aside>
 
-        {/* ── Métricas ── */}
-        {loading ? (
-          <div className="mt-5 grid gap-3 grid-cols-2 md:grid-cols-4">
-            {[0,1,2,3].map(i => <div key={i} className="card p-5 h-24 animate-pulse bg-brand-lilac" />)}
-          </div>
-        ) : metricas ? (
-          <div className="mt-5 grid gap-3 grid-cols-2 md:grid-cols-4">
-            <MetricCard label="Total inscritos"  value={(metricas.total + (totalInscritos - 842)).toLocaleString('pt-BR')} sub="todas as provas" destaque />
-            <MetricCard label="Confirmados"      value={metricas.confirmados.toLocaleString('pt-BR')} sub="pagamento confirmado" />
-            <MetricCard label="Receita"          value={formataBRL(metricas.receita_centavos)} sub="pagamentos confirmados" />
-            <MetricCard label="Pendentes"        value={metricas.pendentes.toLocaleString('pt-BR')} sub="aguardando pagamento" />
-          </div>
-        ) : null}
+      {/* Overlay mobile */}
+      {menuAberto && <div className="fixed inset-0 z-20 bg-black/50 md:hidden" onClick={() => setMenuAberto(false)} />}
 
-        {/* ── Gráficos ── */}
-        {!loading && metricas && (
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
+      {/* ── Conteúdo ── */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header mobile */}
+        <header className="md:hidden sticky top-0 z-10 bg-white border-b border-brand-lilac-mid px-4 py-3 flex items-center gap-3">
+          <button onClick={() => setMenuAberto(true)} className="text-2xl text-brand-muted">☰</button>
+          <span className="font-display font-bold italic uppercase text-brand-purple">{NAV.find(n => n.id === secao)?.label}</span>
+          {metricas && <span className="ml-auto text-[12px] text-brand-muted">{metricas.confirmados} conf.</span>}
+        </header>
 
-            {/* Inscritos por prova */}
-            <div className="card p-5">
-              <div className="font-semibold text-brand-ink mb-4">Inscritos por prova</div>
-              {[
-                { label: '5 km', count: metricas.inscritos_5km, vagas: metricas.vagas_5km },
-                { label: '10 km', count: metricas.inscritos_10km, vagas: metricas.vagas_10km },
-              ].map(p => (
-                <div key={p.label} className="mb-4">
-                  <div className="flex justify-between text-[13px] mb-1.5">
-                    <span className="font-medium text-brand-ink">{p.label}</span>
-                    <span className="text-brand-muted">{p.count} / {p.vagas} vagas ({Math.round((p.count/p.vagas)*100)}%)</span>
-                  </div>
-                  <div className="h-2.5 bg-brand-lilac rounded-full overflow-hidden">
-                    <div className="h-full bg-brand-purple rounded-full transition-all duration-700"
-                      style={{ width: `${Math.min(100, (p.count/p.vagas)*100)}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
+        {/* Conteúdo principal */}
+        <main className="flex-1 p-5 md:p-8 max-w-[1100px] w-full mx-auto">
+          {secao === 'dashboard' && metricas && (
+            <AdminDashboard
+              metricas={metricas} inscritos={inscritos}
+              onRecarregar={carregar} loading={loading}
+            />
+          )}
+          {secao === 'inscricoes' && (
+            <GestaoInscricoes inscritos={inscritos} onRecarregar={carregar} loading={loading} />
+          )}
+          {secao === 'lotes' && <GestaoLotesCupons />}
+          {secao === 'cronograma' && <Cronograma />}
+          {secao === 'financeiro' && eventoId && <Financeiro eventoId={eventoId} />}
+          {secao === 'checkin' && <CheckIn />}
 
-            {/* Status breakdown */}
-            <div className="card p-5">
-              <div className="font-semibold text-brand-ink mb-4">Status das inscrições</div>
-              {[
-                { label: 'Confirmados',  count: metricas.confirmados, cor: 'bg-green-500' },
-                { label: 'Pendentes',    count: metricas.pendentes,   cor: 'bg-yellow-400' },
-                { label: 'Cancelados',   count: metricas.total - metricas.confirmados - metricas.pendentes, cor: 'bg-red-400' },
-              ].map(s => (
-                <div key={s.label} className="flex items-center justify-between py-2 border-b border-brand-lilac-mid last:border-0">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2.5 h-2.5 rounded-full ${s.cor}`} />
-                    <span className="text-[14px] text-brand-ink">{s.label}</span>
-                  </div>
-                  <span className="font-display font-bold text-[18px] text-brand-purple">{s.count}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── Tabela de inscritos ── */}
-        <div className="mt-6 card p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-            <div className="font-semibold text-brand-ink">
-              Inscritos {inscritosFiltrados.length !== inscritos.length && `(${inscritosFiltrados.length} filtrados)`}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <select value={filtroStatus} onChange={e => setFiltroStatus(e.target.value)}
-                className="input text-[13px] py-2 w-36">
-                <option value="todos">Todos</option>
-                <option value="confirmado">Confirmados</option>
-                <option value="pendente">Pendentes</option>
-                <option value="cancelado">Cancelados</option>
-              </select>
-              <input id="busca-inscritos" value={busca} onChange={e => setBusca(e.target.value)}
-                className="input text-[13px] py-2 w-48" placeholder="Buscar nome, prova..." />
-              <button id="btn-exportar-csv" onClick={handleExportCSV}
-                className="btn-primary text-[13px] py-2 px-4">
-                Exportar CSV
-              </button>
-            </div>
-          </div>
-
-          {loading ? (
-            <div className="space-y-3">
-              {[0,1,2].map(i => <div key={i} className="h-12 bg-brand-lilac rounded-xl animate-pulse" />)}
-            </div>
-          ) : inscritos.length === 0 ? (
-            <div className="text-center text-brand-muted py-12">
-              <div className="text-4xl mb-3">🏃</div>
-              <div className="font-display font-bold text-[20px] text-brand-purple">Nenhum inscrito ainda</div>
-              <div className="text-[14px] mt-1">As inscrições aparecerão aqui em tempo real</div>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-[14px]">
-                <thead>
-                  <tr className="text-brand-muted text-left text-[12px] uppercase tracking-[0.08em]">
-                    {['Bib', 'Atleta', 'Prova', 'Categoria', 'Camiseta', 'Valor', 'Pagamento', 'Status'].map(h => (
-                      <th key={h} className="px-2.5 py-2 font-medium">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {inscritosFiltrados.map((r, i) => (
-                    <tr key={i} className="border-t border-brand-lilac-mid hover:bg-brand-bg transition-colors">
-                      <td className="px-2.5 py-3">
-                        <span className="font-display font-bold text-brand-purple text-[15px]">
-                          {r.bib_number ?? '—'}
-                        </span>
-                      </td>
-                      <td className="px-2.5 py-3">
-                        <div className="font-medium text-brand-ink">{r.nome}</div>
-                        <div className="text-[11px] text-brand-muted">{r.email}</div>
-                      </td>
-                      <td className="px-2.5 py-3 text-brand-muted">{r.distancia} km</td>
-                      <td className="px-2.5 py-3 text-brand-muted text-[13px]">{r.categoria}</td>
-                      <td className="px-2.5 py-3 text-center">
-                        <span className="font-display font-bold text-[13px] bg-brand-lilac text-brand-purple-dark px-2 py-0.5 rounded">
-                          {r.camiseta}
-                        </span>
-                      </td>
-                      <td className="px-2.5 py-3 font-medium">{formataBRL(r.preco_centavos ?? 0)}</td>
-                      <td className="px-2.5 py-3 text-brand-muted text-[13px] capitalize">{r.pagamento ?? '—'}</td>
-                      <td className="px-2.5 py-3">
-                        <span className={r.status === 'confirmado' ? 'badge-status-ok' : r.status === 'pendente' ? 'badge-status-pending' : 'badge-status-pending'}>
-                          {r.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {/* Loading state inicial */}
+          {loading && secao === 'dashboard' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[0,1,2,3].map(i => <div key={i} className="h-24 bg-brand-lilac rounded-xl animate-pulse" />)}
+              </div>
             </div>
           )}
-        </div>
+        </main>
       </div>
     </div>
   );
