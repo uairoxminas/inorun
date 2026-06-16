@@ -7,7 +7,7 @@ interface LogoProps {
 export default function Logo({ height = 36, className = '', light = false }: LogoProps) {
   return (
     <img
-      src="/logo.svg"
+      src="/logo.png"
       alt="INO RUN 2026"
       height={height}
       style={{ height }}
