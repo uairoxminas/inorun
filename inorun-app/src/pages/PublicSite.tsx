@@ -202,11 +202,10 @@ export default function PublicSite({ onRegister, onAdmin, totalInscritos, onEven
             className="font-display font-extrabold italic uppercase text-white leading-none"
             style={{ fontSize: 'clamp(32px,7vw,72px)', maxWidth: 600 }}
           >
-            Paraopeba vai tremer em outubro
+            Uma nova era das corridas na região
           </h2>
           <p className="text-white/80 mt-4 text-base leading-relaxed max-w-[480px]">
-            Mais de 800 corredores já confirmados. Venha fazer parte dessa história
-            e cruzar a linha de chegada com a camiseta que vai marcar sua memória.
+            Venha fazer parte dessa história e cruzar a linha de chegada com a camiseta que vai marcar sua memória.
           </p>
           <button
             onClick={onRegister}
