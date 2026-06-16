@@ -1,0 +1,103 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Saira+Condensed:ital,wght@0,600;0,700;0,800;1,600;1,700;1,800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    @apply font-sans text-brand-ink bg-brand-bg;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  a { text-decoration: none; color: inherit; }
+  button { cursor: pointer; }
+  ::selection { background: #8417AE; color: #fff; }
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible {
+    outline: 2px solid #8417AE;
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+}
+
+@layer components {
+  /* ── Botões ── */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2
+           font-display font-bold italic tracking-wider uppercase
+           bg-brand-purple text-white
+           px-7 py-3.5 rounded-xl
+           hover:bg-brand-purple-dark active:scale-95
+           transition-all duration-150 shadow-brand;
+  }
+  .btn-accent {
+    @apply inline-flex items-center justify-center gap-2
+           font-display font-bold italic tracking-wider uppercase
+           bg-brand-yellow text-brand-ink
+           px-7 py-3.5 rounded-xl
+           hover:bg-brand-yellow-dk active:scale-95
+           transition-all duration-150 shadow-yellow;
+  }
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2
+           font-display font-bold italic tracking-wider uppercase
+           border-2 border-brand-purple text-brand-purple
+           bg-transparent px-7 py-3.5 rounded-xl
+           hover:bg-brand-lilac active:scale-95
+           transition-all duration-150;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center gap-1
+           text-brand-muted text-sm font-medium
+           hover:text-brand-purple transition-colors duration-150;
+  }
+
+  /* ── Cards ── */
+  .card {
+    @apply bg-white border border-brand-lilac-mid rounded-2xl shadow-brand;
+  }
+  .card-hover {
+    @apply card hover:shadow-brand-lg transition-shadow duration-200;
+  }
+
+  /* ── Form ── */
+  .input {
+    @apply w-full bg-white border border-brand-lilac-mid rounded-xl
+           px-4 py-3 text-[15px] text-brand-ink font-sans
+           placeholder:text-brand-muted
+           focus:outline-none focus:ring-2 focus:ring-brand-purple focus:border-transparent
+           transition-all duration-150;
+  }
+  .label {
+    @apply block text-[13px] font-medium text-brand-muted mb-1.5;
+  }
+
+  /* ── Badges ── */
+  .badge-lot-active {
+    @apply inline-flex items-center gap-1 bg-brand-yellow text-brand-ink
+           text-xs font-bold px-3 py-1 rounded-full;
+  }
+  .badge-status-ok {
+    @apply text-[12px] px-2.5 py-0.5 rounded-full
+           bg-brand-lilac text-brand-purple-dark font-medium;
+  }
+  .badge-status-pending {
+    @apply text-[12px] px-2.5 py-0.5 rounded-full
+           bg-orange-50 text-orange-700 font-medium;
+  }
+
+  /* ── Seções ── */
+  .section-wrap {
+    @apply mx-auto px-5 max-w-[1120px];
+  }
+  .section-pad {
+    @apply py-16;
+  }
+}
