@@ -109,15 +109,21 @@ export default function PublicSite({ onRegister, onAdmin, totalInscritos, onEven
             medalha finisher e premiação por faixa etária.
           </p>
 
-          {/* Countdown */}
-          <div className="mt-10 flex flex-wrap items-end gap-2.5">
+          {/* Countdown — 1 linha no mobile e desktop */}
+          <div className="mt-8 flex items-end gap-1.5 sm:gap-2.5 flex-nowrap">
             {([['DIAS', d], ['HORAS', h], ['MIN', m], ['SEG', s]] as [string, number][]).map(([lab, val], i) => (
-              <div key={lab} className="flex items-end gap-2.5">
+              <div key={lab} className="flex items-end gap-1.5 sm:gap-2.5">
                 <CountdownBox value={val} label={lab} />
-                {i < 3 && <span className="text-brand-purple-mid font-bold pb-7" style={{ fontSize: 38 }}>:</span>}
+                {i < 3 && (
+                  <span
+                    className="text-brand-purple-mid font-bold shrink-0"
+                    style={{ fontSize: 'clamp(22px,5vw,38px)', paddingBottom: 'clamp(18px,4vw,30px)' }}
+                  >:</span>
+                )}
               </div>
             ))}
           </div>
+
 
           <div className="mt-10 flex flex-wrap items-center gap-5">
             <button id="hero-garantir-vaga" onClick={onRegister} className="btn-primary text-xl px-9 py-4">
