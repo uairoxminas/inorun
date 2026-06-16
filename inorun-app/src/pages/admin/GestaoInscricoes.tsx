@@ -1,9 +1,12 @@
-// src/pages/admin/GestaoInscricoes.tsx — Gestão de inscrições com drawer do atleta
+// src/pages/admin/GestaoInscricoes.tsx — Gestão de inscrições com drawer de edição
 
 import { useState } from 'react';
 import { formataBRL } from '../../lib/precoLoteAtual';
-import { cancelarInscricao, gerarCSV } from '../../services/adminService';
+import { cancelarInscricao, editarInscricao, gerarCSV } from '../../services/adminService';
 import type { InscritoRow } from '../../services/adminService';
+
+const CAMISETAS = ['PP', 'P', 'M', 'G', 'GG', 'XG'];
+const STATUS_OPTIONS = ['pendente', 'confirmado', 'cancelado'];
 
 interface Props { inscritos: InscritoRow[]; onRecarregar: () => void; loading: boolean; }
 
@@ -25,9 +28,19 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
   const [filtroStatus, setFiltroStatus] = useState('todos');
   const [filtroProva, setFiltroProva]   = useState('todos');
   const [atleta, setAtleta]             = useState<InscritoRow | null>(null);
+  const [modoEdicao, setModoEdicao]     = useState(false);
+  const [salvando, setSalvando]         = useState(false);
   const [cancelando, setCancelando]     = useState(false);
   const [pag, setPag]                   = useState(1);
   const POR_PAG = 20;
+
+  // Estado do form de edição
+  const [eNome, setENome]         = useState('');
+  const [eEmail, setEEmail]       = useState('');
+  const [eTelefone, setETelefone] = useState('');
+  const [eCamiseta, setECamiseta] = useState('');
+  const [eStatus, setEStatus]     = useState('');
+  const [eErro, setEErro]         = useState('');
 
   const filtrados = inscritos.filter(r => {
     const matchB = !busca ||
@@ -40,8 +53,55 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
     return matchB && matchS && matchP;
   });
 
-  const paginas = Math.ceil(filtrados.length / POR_PAG);
+  const paginas  = Math.ceil(filtrados.length / POR_PAG);
   const paginados = filtrados.slice((pag - 1) * POR_PAG, pag * POR_PAG);
+
+  const abrirDrawer = (r: InscritoRow) => {
+    setAtleta(r);
+    setModoEdicao(false);
+    setEErro('');
+  };
+
+  const iniciarEdicao = () => {
+    if (!atleta) return;
+    setENome(atleta.nome);
+    setEEmail(atleta.email);
+    setETelefone('');
+    setECamiseta(atleta.camiseta);
+    setEStatus(atleta.status);
+    setEErro('');
+    setModoEdicao(true);
+  };
+
+  const handleSalvar = async () => {
+    if (!atleta) return;
+    setSalvando(true);
+    setEErro('');
+    const res = await editarInscricao(atleta.registration_id, {
+      nome:     eNome     !== atleta.nome     ? eNome     : undefined,
+      email:    eEmail    !== atleta.email    ? eEmail    : undefined,
+      telefone: eTelefone || undefined,
+      camiseta: eCamiseta !== atleta.camiseta ? eCamiseta : undefined,
+      status:   eStatus   !== atleta.status   ? eStatus   : undefined,
+    });
+    if (res.ok) {
+      await onRecarregar();
+      // Atualiza o atleta local com os novos dados
+      setAtleta({ ...atleta, nome: eNome, email: eEmail, camiseta: eCamiseta, status: eStatus });
+      setModoEdicao(false);
+    } else {
+      setEErro(res.erro ?? 'Erro ao salvar');
+    }
+    setSalvando(false);
+  };
+
+  const handleCancelar = async () => {
+    if (!atleta || !confirm(`Cancelar inscrição de ${atleta.nome}?`)) return;
+    setCancelando(true);
+    const { ok } = await cancelarInscricao(atleta.registration_id);
+    if (ok) { await onRecarregar(); setAtleta(null); }
+    setCancelando(false);
+  };
 
   const handleExport = () => {
     const csv  = gerarCSV(filtrados);
@@ -50,14 +110,6 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
     const a    = document.createElement('a');
     a.href = url; a.download = `inorun-inscritos-${new Date().toISOString().slice(0,10)}.csv`;
     a.click(); URL.revokeObjectURL(url);
-  };
-
-  const handleCancelar = async () => {
-    if (!atleta || !confirm(`Cancelar inscrição de ${atleta.nome}?`)) return;
-    setCancelando(true);
-    const { ok } = await cancelarInscricao(atleta.registration_id);
-    if (ok) { onRecarregar(); setAtleta(null); }
-    setCancelando(false);
   };
 
   return (
@@ -106,16 +158,14 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
           <table className="w-full border-collapse text-[14px]">
             <thead>
               <tr className="text-brand-muted text-[11px] uppercase tracking-[0.08em] bg-brand-bg">
-                {['Bib','Atleta','Prova','Cat.','Camiseta','Valor','Check-in','Status'].map(h => (
+                {['Bib','Atleta','Prova','Cat.','Camiseta','Valor','Check-in','Status',''].map(h => (
                   <th key={h} className="px-3 py-2.5 text-left font-medium">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {paginados.map((r, i) => (
-                <tr key={i}
-                  onClick={() => setAtleta(r)}
-                  className="border-t border-brand-lilac-mid hover:bg-brand-lilac/40 cursor-pointer transition-colors">
+                <tr key={i} className="border-t border-brand-lilac-mid hover:bg-brand-lilac/40 transition-colors">
                   <td className="px-3 py-2.5">
                     <span className="font-display font-bold text-brand-purple text-[14px]">{r.bib_number ?? '—'}</span>
                   </td>
@@ -137,6 +187,12 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
                       : <span className="text-brand-muted text-[12px]">—</span>}
                   </td>
                   <td className="px-3 py-2.5"><Badge status={r.status} /></td>
+                  <td className="px-3 py-2.5">
+                    <button onClick={() => abrirDrawer(r)}
+                      className="text-[12px] text-brand-purple hover:underline font-medium">
+                      Ver / Editar
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -153,58 +209,150 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
         </div>
       )}
 
-      {/* Drawer do atleta */}
+      {/* ── Drawer ── */}
       {atleta && (
         <div className="fixed inset-0 z-50 flex">
-          <div className="flex-1 bg-black/50 backdrop-blur-sm" onClick={() => setAtleta(null)} />
-          <div className="w-full max-w-[420px] bg-white shadow-2xl overflow-y-auto animate-slide-in-right">
+          <div className="flex-1 bg-black/50 backdrop-blur-sm" onClick={() => { setAtleta(null); setModoEdicao(false); }} />
+          <div className="w-full max-w-[440px] bg-white shadow-2xl overflow-y-auto animate-slide-in-right">
             <div className="p-6">
+              {/* Header */}
               <div className="flex items-center justify-between mb-5">
-                <h3 className="font-display font-extrabold italic uppercase text-[22px] text-brand-ink">Ficha do Atleta</h3>
-                <button onClick={() => setAtleta(null)} className="text-brand-muted hover:text-brand-ink text-[22px] leading-none">×</button>
+                <div>
+                  <h3 className="font-display font-extrabold italic uppercase text-[22px] text-brand-ink leading-none">
+                    {modoEdicao ? 'Editar inscrição' : 'Ficha do atleta'}
+                  </h3>
+                  <p className="text-[12px] text-brand-muted mt-0.5">ID: {atleta.registration_id.slice(0,8)}...</p>
+                </div>
+                <button onClick={() => { setAtleta(null); setModoEdicao(false); }}
+                  className="text-brand-muted hover:text-brand-ink text-[24px] leading-none">×</button>
               </div>
 
               {/* Bib destaque */}
               {atleta.bib_number && (
                 <div className="bg-gradient-brand rounded-xl p-4 text-center mb-5">
                   <div className="text-white/70 text-[11px] uppercase tracking-[0.15em]">Número de peito</div>
-                  <div className="font-display font-extrabold text-[56px] text-brand-yellow leading-none">{atleta.bib_number}</div>
+                  <div className="font-display font-extrabold text-[52px] text-brand-yellow leading-none">{atleta.bib_number}</div>
+                  <div className="text-white/70 text-[12px] mt-1">{atleta.categoria} · {atleta.distancia} km</div>
                 </div>
               )}
 
-              {/* Dados */}
-              <div className="space-y-3">
-                {[
-                  ['Nome', atleta.nome],
-                  ['E-mail', atleta.email],
-                  ['CPF', atleta.cpf ? atleta.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : '—'],
-                  ['Sexo', atleta.sexo === 'M' ? 'Masculino' : 'Feminino'],
-                  ['Prova', `${atleta.distancia} km`],
-                  ['Categoria', atleta.categoria],
-                  ['Camiseta', atleta.camiseta],
-                  ['Lote', atleta.lote ?? '—'],
-                  ['Valor pago', formataBRL(atleta.preco_centavos ?? 0)],
-                  ['Pagamento', atleta.pagamento ?? '—'],
-                  ['Status pgto', atleta.pag_status ?? '—'],
-                  ['Check-in', atleta.checked_in_at
-                    ? `✅ ${new Date(atleta.checked_in_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`
-                    : '❌ Não realizado'],
-                  ['Inscrito em', new Date(atleta.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })],
-                ].map(([k, v]) => (
-                  <div key={k} className="flex justify-between py-2 border-b border-brand-lilac-mid last:border-0">
-                    <span className="text-[12px] text-brand-muted uppercase tracking-[0.08em]">{k}</span>
-                    <span className="text-[14px] text-brand-ink font-medium text-right max-w-[240px]">{v}</span>
+              {/* ── MODO VISUALIZAÇÃO ── */}
+              {!modoEdicao && (
+                <>
+                  <div className="space-y-0 mb-5">
+                    {[
+                      ['Nome',       atleta.nome],
+                      ['E-mail',     atleta.email],
+                      ['CPF',        atleta.cpf ? atleta.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '***.$2.$3-**') : '—'],
+                      ['Sexo',       atleta.sexo === 'M' ? 'Masculino' : 'Feminino'],
+                      ['Prova',      `${atleta.distancia} km`],
+                      ['Categoria',  atleta.categoria],
+                      ['Camiseta',   atleta.camiseta],
+                      ['Lote',       atleta.lote ?? '—'],
+                      ['Valor',      formataBRL(atleta.preco_centavos ?? 0)],
+                      ['Pagamento',  atleta.pagamento ?? '—'],
+                      ['Pag. Status',atleta.pag_status ?? '—'],
+                      ['Status',     atleta.status],
+                      ['Check-in',   atleta.checked_in_at
+                        ? `✅ ${new Date(atleta.checked_in_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`
+                        : '❌ Não realizado'],
+                      ['Inscrito em', new Date(atleta.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })],
+                    ].map(([k, v]) => (
+                      <div key={k} className="flex justify-between py-2.5 border-b border-brand-lilac-mid last:border-0">
+                        <span className="text-[12px] text-brand-muted uppercase tracking-[0.08em] shrink-0">{k}</span>
+                        <span className="text-[13px] text-brand-ink font-medium text-right max-w-[240px] ml-3">{v}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
 
-              {/* Ações */}
-              {atleta.status !== 'cancelado' && (
-                <button id="btn-cancelar-inscricao" onClick={handleCancelar}
-                  disabled={cancelando}
-                  className="w-full mt-6 py-3 rounded-xl border-2 border-red-400 text-red-600 font-semibold text-[14px] hover:bg-red-50 transition-colors disabled:opacity-50">
-                  {cancelando ? 'Cancelando...' : '⚠️ Cancelar inscrição'}
-                </button>
+                  {/* Ações */}
+                  <div className="space-y-2">
+                    <button id="btn-editar-inscricao" onClick={iniciarEdicao}
+                      className="w-full py-3 rounded-xl bg-brand-purple text-white font-semibold text-[14px] hover:bg-brand-purple-dark transition-colors">
+                      ✏️ Editar inscrição
+                    </button>
+                    {atleta.status !== 'cancelado' && (
+                      <button id="btn-cancelar-inscricao" onClick={handleCancelar}
+                        disabled={cancelando}
+                        className="w-full py-3 rounded-xl border-2 border-red-400 text-red-600 font-semibold text-[14px] hover:bg-red-50 transition-colors disabled:opacity-50">
+                        {cancelando ? 'Cancelando...' : '⚠️ Cancelar inscrição'}
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* ── MODO EDIÇÃO ── */}
+              {modoEdicao && (
+                <div className="space-y-4">
+                  <div className="bg-brand-lilac rounded-xl p-3 text-[12px] text-brand-purple-dark">
+                    Edite os campos abaixo. Campos em branco não serão alterados.
+                  </div>
+
+                  <div>
+                    <label className="label">Nome completo</label>
+                    <input id="edit-nome" className="input" value={eNome}
+                      onChange={e => setENome(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="label">E-mail</label>
+                    <input id="edit-email" type="email" className="input" value={eEmail}
+                      onChange={e => setEEmail(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="label">Telefone</label>
+                    <input id="edit-telefone" className="input" value={eTelefone}
+                      onChange={e => setETelefone(e.target.value)}
+                      placeholder="(Deixe vazio para não alterar)" />
+                  </div>
+                  <div>
+                    <label className="label">Camiseta</label>
+                    <div className="flex gap-2 flex-wrap">
+                      {CAMISETAS.map(c => (
+                        <button key={c} type="button" id={`edit-camiseta-${c}`}
+                          onClick={() => setECamiseta(c)}
+                          className={`px-4 py-2 rounded-xl border-2 font-display font-bold text-[15px] transition-all ${
+                            eCamiseta === c
+                              ? 'bg-brand-purple text-white border-brand-purple'
+                              : 'bg-white text-brand-muted border-brand-lilac-mid hover:border-brand-purple'
+                          }`}>{c}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="label">Status da inscrição</label>
+                    <div className="flex gap-2">
+                      {STATUS_OPTIONS.map(s => (
+                        <button key={s} type="button" id={`edit-status-${s}`}
+                          onClick={() => setEStatus(s)}
+                          className={`flex-1 py-2 rounded-xl border-2 font-semibold text-[13px] capitalize transition-all ${
+                            eStatus === s
+                              ? s === 'confirmado' ? 'bg-green-600 text-white border-green-600'
+                              : s === 'cancelado'  ? 'bg-red-500 text-white border-red-500'
+                              : 'bg-yellow-400 text-brand-ink border-yellow-400'
+                              : 'bg-white text-brand-muted border-brand-lilac-mid hover:border-brand-purple'
+                          }`}>{s}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {eErro && (
+                    <div className="bg-red-50 border border-red-300 rounded-xl px-4 py-3 text-red-600 text-[13px]">
+                      {eErro}
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 pt-2">
+                    <button onClick={() => { setModoEdicao(false); setEErro(''); }}
+                      className="flex-1 py-3 rounded-xl border-2 border-brand-lilac-mid text-brand-muted font-semibold text-[14px] hover:border-brand-purple hover:text-brand-purple transition-colors">
+                      Cancelar
+                    </button>
+                    <button id="btn-salvar-edicao-inscricao" onClick={handleSalvar} disabled={salvando}
+                      className="flex-1 py-3 rounded-xl bg-brand-purple text-white font-semibold text-[14px] hover:bg-brand-purple-dark transition-colors disabled:opacity-60">
+                      {salvando ? 'Salvando...' : '✓ Salvar'}
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           </div>

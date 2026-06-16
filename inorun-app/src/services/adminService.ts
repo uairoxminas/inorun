@@ -185,6 +185,23 @@ export async function cancelarInscricao(registration_id: string): Promise<{ ok: 
   return data as { ok: boolean; erro?: string };
 }
 
+export async function editarInscricao(
+  registration_id: string,
+  campos: { nome?: string; email?: string; telefone?: string; camiseta?: string; status?: string; race_id?: string }
+): Promise<{ ok: boolean; erro?: string }> {
+  const { data, error } = await supabase.rpc('admin_editar_inscricao', {
+    p_registration_id: registration_id,
+    p_nome:     campos.nome     ?? null,
+    p_email:    campos.email    ?? null,
+    p_telefone: campos.telefone ?? null,
+    p_camiseta: campos.camiseta ?? null,
+    p_status:   campos.status   ?? null,
+    p_race_id:  campos.race_id  ?? null,
+  });
+  if (error) return { ok: false, erro: error.message };
+  return data as { ok: boolean; erro?: string };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // LOTES E CUPONS
 // ─────────────────────────────────────────────────────────────────────────────
@@ -231,6 +248,29 @@ export async function toggleCupom(cupom_id: string, ativo: boolean): Promise<{ o
   const { data, error } = await supabase.rpc('admin_toggle_cupom', { p_cupom_id: cupom_id, p_ativo: ativo });
   if (error) return { ok: false };
   return data as { ok: boolean };
+}
+
+export async function salvarLote(lote: {
+  id?: string; race_id?: string; nome: string;
+  preco_centavos: number; abre_em: string; fecha_em: string; ordem?: number;
+}): Promise<{ ok: boolean; erro?: string; id?: string }> {
+  const { data, error } = await supabase.rpc('admin_salvar_lote', {
+    p_id:             lote.id             ?? null,
+    p_race_id:        lote.race_id        ?? null,
+    p_nome:           lote.nome,
+    p_preco_centavos: lote.preco_centavos,
+    p_abre_em:        lote.abre_em,
+    p_fecha_em:       lote.fecha_em,
+    p_ordem:          lote.ordem          ?? null,
+  });
+  if (error) return { ok: false, erro: error.message };
+  return data as { ok: boolean; erro?: string; id?: string };
+}
+
+export async function deletarLote(lot_id: string): Promise<{ ok: boolean; erro?: string }> {
+  const { data, error } = await supabase.rpc('admin_deletar_lote', { p_lot_id: lot_id });
+  if (error) return { ok: false, erro: error.message };
+  return data as { ok: boolean; erro?: string };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
