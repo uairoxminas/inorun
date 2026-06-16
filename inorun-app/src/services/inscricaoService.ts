@@ -41,51 +41,27 @@ export interface ResultadoInscricao {
   status: 'confirmado';
 }
 
-// ── Passo 1: upsert do atleta (CPF é a chave de negócio) ──────────────────
+// ── Passo 1: upsert do atleta via RPC com SECURITY DEFINER ────────────────
+// O role anon NÃO tem SELECT em athlete (dados protegidos por LGPD).
+// A função upsert_atleta roda como SECURITY DEFINER e retorna o id.
 async function upsertAtleta(dados: DadosAtleta): Promise<string> {
   if (!validaCPF(dados.cpf)) throw new Error('CPF inválido');
 
-  // CPF sem formatação
   const cpfLimpo = dados.cpf.replace(/\D/g, '');
 
-  // Tenta buscar atleta existente pelo CPF
-  const { data: existente } = await supabase
-    .from('athlete')
-    .select('id')
-    .eq('cpf', cpfLimpo)
-    .single();
+  const { data, error } = await supabase.rpc('upsert_atleta', {
+    p_nome:      dados.nome.trim(),
+    p_cpf:       cpfLimpo,
+    p_nascimento: dados.nascimento,
+    p_sexo:      dados.sexo,
+    p_email:     dados.email.trim().toLowerCase(),
+    p_telefone:  dados.telefone?.trim() || null,
+    p_emergencia: dados.contato_emergencia?.trim() || null,
+  });
 
-  if (existente) return existente.id;
-
-  // Cria novo atleta
-  const { data, error } = await supabase
-    .from('athlete')
-    .insert({
-      nome:               dados.nome.trim(),
-      cpf:                cpfLimpo,
-      nascimento:         dados.nascimento,
-      sexo:               dados.sexo,
-      email:              dados.email.trim().toLowerCase(),
-      telefone:           dados.telefone?.trim() || null,
-      contato_emergencia: dados.contato_emergencia?.trim() || null,
-    })
-    .select('id')
-    .single();
-
-  if (error) {
-    // CPF duplicado — busca e retorna o existente
-    if (error.code === '23505') {
-      const { data: dup } = await supabase
-        .from('athlete')
-        .select('id')
-        .eq('cpf', cpfLimpo)
-        .single();
-      if (dup) return dup.id;
-    }
-    throw new Error(`Erro ao criar atleta: ${error.message}`);
-  }
-
-  return data.id;
+  if (error) throw new Error(`Erro ao criar atleta: ${error.message}`);
+  if (data?.error) throw new Error(data.error);
+  return data.athlete_id as string;
 }
 
 // ── Passo 2: cria a inscrição ─────────────────────────────────────────────
@@ -115,7 +91,6 @@ async function criarRegistration(
     .single();
 
   if (error) {
-    // Inscrição duplicada (CPF já inscrito nesta prova)
     if (error.code === '23505') {
       throw new Error('Este CPF já está inscrito nesta prova.');
     }
@@ -130,7 +105,6 @@ async function criarPagamento(
   registration_id: string,
   inscricao: DadosInscricao
 ): Promise<string> {
-  // gateway_ref único para idempotência
   const gateway_ref = `mock_${registration_id}_${Date.now()}`;
 
   const { data, error } = await supabase
@@ -167,17 +141,10 @@ export async function criarInscricaoCompleta(
   inscricaoDados: DadosInscricao,
   provaDados: { label: string }
 ): Promise<ResultadoInscricao> {
-  // 1. Upsert atleta
-  const athlete_id = await upsertAtleta(atletaDados);
-
-  // 2. Cria inscrição
+  const athlete_id      = await upsertAtleta(atletaDados);
   const registration_id = await criarRegistration(athlete_id, atletaDados, inscricaoDados);
-
-  // 3. Cria pagamento
-  const gateway_ref = await criarPagamento(registration_id, inscricaoDados);
-
-  // 4. Confirma pagamento mock → gera bib
-  const { bib_number } = await confirmarPagamentoMock(gateway_ref);
+  const gateway_ref     = await criarPagamento(registration_id, inscricaoDados);
+  const { bib_number }  = await confirmarPagamentoMock(gateway_ref);
 
   const categoria = calcCategoria(
     new Date(atletaDados.nascimento),
@@ -188,10 +155,10 @@ export async function criarInscricaoCompleta(
     registration_id,
     bib_number,
     categoria,
-    atleta_nome:   atletaDados.nome,
-    prova_label:   provaDados.label,
+    atleta_nome:    atletaDados.nome,
+    prova_label:    provaDados.label,
     valor_centavos: inscricaoDados.valor_centavos,
-    metodo:        inscricaoDados.metodo_pagamento,
-    status:        'confirmado',
+    metodo:         inscricaoDados.metodo_pagamento,
+    status:         'confirmado',
   };
 }
