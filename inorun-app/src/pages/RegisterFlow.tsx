@@ -1,74 +1,119 @@
-// src/pages/RegisterFlow.tsx
-// Fluxo de inscrição em 5 passos — INO RUN 2026
-// Dados: gemini.md. Validação: calcCategoria + validaCPF (módulos puros).
-// NOTA: neste estágio (Phase 4 antecipada) os dados são mock local.
-//       Na Phase 3 (Architect) será conectado ao Supabase Edge Function.
+// src/pages/RegisterFlow.tsx — Fluxo de inscrição real conectado ao Supabase
+// 5 passos: prova → dados → categoria/kit → pagamento → confirmação
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Logo from '../components/Logo';
 import { calcCategoria } from '../lib/calcCategoria';
 import { validaCPF, formataCPF } from '../lib/validaCPF';
-import { precoLoteAtual, formataBRL } from '../lib/precoLoteAtual';
+import { formataBRL } from '../lib/precoLoteAtual';
+import { getEventoPublico, getLoteAtivo, validarCupom } from '../services/eventoService';
+import { criarInscricaoCompleta } from '../services/inscricaoService';
+import type { EventoData } from '../services/eventoService';
+import type { ResultadoInscricao } from '../services/inscricaoService';
 
-interface Props {
-  onBack: () => void;
-  onDone: () => void;
-}
+interface Props { onBack: () => void; onDone: () => void; }
 
-const STEPS = ['Prova', 'Seus dados', 'Categoria & kit', 'Pagamento', 'Confirmação'];
+const STEPS    = ['Prova', 'Seus dados', 'Categoria & kit', 'Pagamento', 'Confirmação'];
 const CAMISETAS = ['PP', 'P', 'M', 'G', 'GG', 'XG'] as const;
-const CUPONS: Record<string, number> = { 'INO10': 0.10, 'INO15': 0.15 };
 
 interface FormState {
-  dist: '5km' | '10km' | '';
+  race_id: string; dist: '5km' | '10km' | '';
   nome: string; cpf: string; nasc: string; sexo: 'M' | 'F' | '';
   email: string; tel: string; emergencia: string;
-  camiseta: string; cupom: string; pag: 'pix' | 'cartao';
-  termo: boolean;
+  camiseta: string; cupom: string; pag: 'pix' | 'cartao'; termo: boolean;
 }
 
 export default function RegisterFlow({ onBack, onDone }: Props) {
-  const [step, setStep] = useState(1);
+  const [step, setStep]         = useState(1);
+  const [evento, setEvento]     = useState<EventoData | null>(null);
+  const [loading, setLoading]   = useState(true);
+  const [enviando, setEnviando] = useState(false);
+  const [erroEnvio, setErroEnvio] = useState('');
+  const [resultado, setResultado] = useState<ResultadoInscricao | null>(null);
+  const [cpfErro, setCpfErro]   = useState('');
+  const [cupomInfo, setCupomInfo] = useState<{ valido: boolean; desconto: number; id?: string } | null>(null);
+  const [validandoCupom, setValidandoCupom] = useState(false);
+
   const [f, setF] = useState<FormState>({
-    dist: '', nome: '', cpf: '', nasc: '', sexo: '',
+    race_id: '', dist: '', nome: '', cpf: '', nasc: '', sexo: '',
     email: '', tel: '', emergencia: '',
     camiseta: '', cupom: '', pag: 'pix', termo: false,
   });
-  const [cpfError, setCpfError] = useState('');
+  const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF(p => ({ ...p, [k]: v }));
 
-  const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
-    setF(p => ({ ...p, [k]: v }));
+  useEffect(() => {
+    getEventoPublico().then(setEvento).finally(() => setLoading(false));
+  }, []);
 
-  const loteAtual = f.dist ? precoLoteAtual(f.dist) : null;
+  const race    = evento?.races.find(r => r.id === f.race_id);
+  const loteAtual = (evento && f.race_id) ? getLoteAtivo(evento.lots, f.race_id) : null;
   const precoBase = loteAtual?.preco_centavos ?? 0;
-  const cupomKey = f.cupom.trim().toUpperCase();
-  const desconto = CUPONS[cupomKey] ?? 0;
-  const totalCentavos = Math.round(precoBase * (1 - desconto));
+  const desconto  = cupomInfo?.valido ? cupomInfo.desconto : 0;
+  const total     = Math.round(precoBase * (1 - desconto));
 
   const categoria = useMemo(() => {
     if (!f.nasc || !f.sexo) return '—';
     return calcCategoria(new Date(f.nasc), f.sexo as 'M' | 'F');
   }, [f.nasc, f.sexo]);
 
-  // bib mock — na Phase 3 vem do Supabase após pagamento confirmado
-  const bib = useMemo(() => String(1100 + Math.floor(Math.random() * 900)), []);
-
-  const canAdvance = {
-    1: !!f.dist,
-    2: !!f.nome && !!f.cpf && !!f.nasc && !!f.sexo && !!f.email && !cpfError,
+  // Validação por step
+  const canAdvance: Record<number, boolean> = {
+    1: !!f.race_id && !!loteAtual,
+    2: !!f.nome && !!f.cpf && !!f.nasc && !!f.sexo && !!f.email && !cpfErro,
     3: !!f.camiseta,
     4: f.termo,
-  } as Record<number, boolean>;
-
-  const handleCpfBlur = () => {
-    if (f.cpf && !validaCPF(f.cpf)) setCpfError('CPF inválido');
-    else setCpfError('');
   };
 
-  const PROVAS_INFO = [
-    { id: '5km' as const, label: 'Prova 5 km', tag: 'Iniciante' },
-    { id: '10km' as const, label: 'Prova 10 km', tag: 'Performance' },
-  ];
+  const handleCpfBlur = () => {
+    if (f.cpf && !validaCPF(f.cpf)) setCpfErro('CPF inválido');
+    else setCpfErro('');
+  };
+
+  const handleValidarCupom = async () => {
+    if (!f.cupom.trim()) return;
+    setValidandoCupom(true);
+    const res = await validarCupom(f.cupom);
+    setCupomInfo(res);
+    setValidandoCupom(false);
+  };
+
+  // Submete a inscrição no Supabase
+  const handlePagar = async () => {
+    if (!evento || !race || !loteAtual) return;
+    setEnviando(true);
+    setErroEnvio('');
+    try {
+      const res = await criarInscricaoCompleta(
+        {
+          nome: f.nome, cpf: f.cpf, nascimento: f.nasc,
+          sexo: f.sexo as 'M' | 'F', email: f.email,
+          telefone: f.tel, contato_emergencia: f.emergencia,
+        },
+        {
+          race_id:           f.race_id,
+          lot_id:            loteAtual.id,
+          event_id:          evento.id,
+          camiseta:          f.camiseta as FormState['camiseta'] extends string ? never : never,
+          cupom_id:          cupomInfo?.id,
+          valor_centavos:    total,
+          metodo_pagamento:  f.pag,
+        },
+        { label: race.label }
+      );
+      setResultado(res);
+      setStep(5);
+    } catch (err: unknown) {
+      setErroEnvio(err instanceof Error ? err.message : 'Erro inesperado. Tente novamente.');
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  if (loading) return (
+    <div className="min-h-screen bg-brand-bg flex items-center justify-center">
+      <div className="text-brand-muted text-[15px] animate-pulse">Carregando evento...</div>
+    </div>
+  );
 
   return (
     <div className="bg-brand-bg text-brand-ink font-sans min-h-screen">
@@ -82,13 +127,14 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
           <Logo height={28} />
         </div>
 
-        {/* ── Seção informativa (RULE: inserir objetivos/instruções em cada tela) ── */}
+        {/* Info box */}
         <div className="mt-5 bg-brand-lilac border border-brand-lilac-mid rounded-xl px-4 py-3 text-[13px] text-brand-purple-dark">
-          <strong>Fluxo de inscrição em 5 passos:</strong> prova → dados pessoais → categoria &amp; kit → pagamento → confirmação.
-          {' '}CPF único por prova. Categoria calculada automaticamente pela idade em 11/10/2026.
+          <strong>Fluxo de inscrição em 5 passos.</strong> CPF único por prova.
+          Categoria calculada automaticamente pela idade em 11/10/2026.
+          Pagamento via Pix (confirmação imediata) ou cartão.
         </div>
 
-        {/* Progress bar */}
+        {/* Progress */}
         <div className="mt-4 flex gap-1.5">
           {STEPS.map((_, i) => (
             <div key={i} className={`flex-1 h-1 rounded-full transition-all duration-300 ${i < step ? 'bg-brand-purple' : 'bg-brand-lilac-mid'}`} />
@@ -98,31 +144,28 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
           Passo {step} de 5 · {STEPS[step - 1]}
         </div>
 
-        {/* ── STEP 1: Prova ── */}
+        {/* ── STEP 1: Escolha a prova ── */}
         {step === 1 && (
           <div className="mt-6 grid gap-3">
-            {PROVAS_INFO.map(p => {
-              const lote = precoLoteAtual(p.id);
+            {evento?.races.map(r => {
+              const lote = getLoteAtivo(evento.lots, r.id);
+              const sel  = f.race_id === r.id;
               return (
-                <button
-                  key={p.id}
-                  id={`select-prova-${p.id}`}
-                  onClick={() => set('dist', p.id)}
+                <button key={r.id} id={`select-prova-${r.distancia_km}km`}
+                  onClick={() => { set('race_id', r.id); set('dist', r.distancia_km === 5 ? '5km' : '10km'); }}
                   className={`flex items-center justify-between text-left p-5 rounded-2xl border-2 transition-all duration-150
-                    ${f.dist === p.id
-                      ? 'bg-brand-lilac border-brand-purple-mid shadow-brand'
-                      : 'bg-white border-brand-lilac-mid hover:border-brand-purple-mid'}`}
-                >
+                    ${sel ? 'bg-brand-lilac border-brand-purple-mid shadow-brand' : 'bg-white border-brand-lilac-mid hover:border-brand-purple-mid'}`}>
                   <div>
-                    <div className="font-display font-extrabold italic text-[26px] uppercase text-brand-ink">{p.label}</div>
-                    <div className="text-[13px] text-brand-muted">{p.tag}</div>
+                    <div className="font-display font-extrabold italic text-[26px] uppercase text-brand-ink">{r.label}</div>
+                    <div className="text-[13px] text-brand-muted">{r.distancia_km === 5 ? 'Iniciante' : 'Performance'}</div>
+                    {!lote && <div className="text-[12px] text-orange-500 mt-1">Inscrições encerradas</div>}
                   </div>
                   <div className="text-right">
-                    <div className="text-[12px] text-brand-muted">a partir de</div>
+                    <div className="text-[11px] text-brand-muted">a partir de</div>
                     <div className="font-display font-extrabold text-[24px] text-brand-purple">
                       {lote ? formataBRL(lote.preco_centavos) : '—'}
                     </div>
-                    <div className="text-[11px] text-brand-muted">{lote?.nome}</div>
+                    {lote && <div className="text-[11px] text-brand-muted">{lote.nome}</div>}
                   </div>
                 </button>
               );
@@ -141,12 +184,13 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="label">CPF</label>
-                <input id="input-cpf" className={`input ${cpfError ? 'border-red-400 focus:ring-red-400' : ''}`}
+                <input id="input-cpf"
+                  className={`input ${cpfErro ? 'border-red-400 focus:ring-red-400' : ''}`}
                   value={f.cpf}
                   onChange={e => set('cpf', formataCPF(e.target.value.replace(/\D/g, '')))}
                   onBlur={handleCpfBlur}
                   placeholder="000.000.000-00" maxLength={14} />
-                {cpfError && <p className="text-red-500 text-[12px] mt-1">{cpfError}</p>}
+                {cpfErro && <p className="text-red-500 text-[12px] mt-1">{cpfErro}</p>}
               </div>
               <div>
                 <label className="label">Nascimento</label>
@@ -161,9 +205,7 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
                   <button key={sx} id={`select-sexo-${sx}`}
                     onClick={() => set('sexo', sx)}
                     className={`flex-1 py-3 rounded-xl font-semibold border-2 transition-all duration-150
-                      ${f.sexo === sx
-                        ? 'bg-brand-purple text-white border-brand-purple'
-                        : 'bg-white text-brand-ink border-brand-lilac-mid hover:border-brand-purple'}`}>
+                      ${f.sexo === sx ? 'bg-brand-purple text-white border-brand-purple' : 'bg-white text-brand-ink border-brand-lilac-mid hover:border-brand-purple'}`}>
                     {sx === 'M' ? 'Masculino' : 'Feminino'}
                   </button>
                 ))}
@@ -189,21 +231,15 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
           </div>
         )}
 
-        {/* ── STEP 3: Categoria & kit ── */}
+        {/* ── STEP 3: Categoria + kit + cupom ── */}
         {step === 3 && (
           <div className="mt-6 grid gap-5">
-            {/* Categoria calculada */}
             <div className="bg-white border border-brand-lilac-mid rounded-2xl p-5">
               <div className="text-[13px] text-brand-muted">Sua categoria (calculada pela idade em 11/10/2026)</div>
               <div className="font-display font-extrabold italic text-[32px] text-brand-purple mt-1">{categoria}</div>
-              {categoria !== '—' && (
-                <div className="text-[12px] text-brand-muted mt-1">
-                  Premiação individual por faixa etária e sexo
-                </div>
-              )}
+              <div className="text-[12px] text-brand-muted mt-0.5">Premiação individual por faixa etária e sexo</div>
             </div>
 
-            {/* Camiseta */}
             <div>
               <label className="label">Tamanho da camiseta</label>
               <div className="flex flex-wrap gap-2">
@@ -211,27 +247,30 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
                   <button key={c} id={`select-camiseta-${c}`}
                     onClick={() => set('camiseta', c)}
                     className={`w-14 py-3 rounded-xl font-display font-bold text-[16px] border-2 transition-all duration-150
-                      ${f.camiseta === c
-                        ? 'bg-brand-purple text-white border-brand-purple'
-                        : 'bg-white text-brand-ink border-brand-lilac-mid hover:border-brand-purple'}`}>
+                      ${f.camiseta === c ? 'bg-brand-purple text-white border-brand-purple' : 'bg-white text-brand-ink border-brand-lilac-mid hover:border-brand-purple'}`}>
                     {c}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Cupom */}
             <div>
               <label className="label">Cupom de desconto (opcional)</label>
-              <input id="input-cupom" className="input" value={f.cupom}
-                onChange={e => set('cupom', e.target.value.toUpperCase())}
-                placeholder="Ex: INO10" />
-              {desconto > 0 && (
+              <div className="flex gap-2">
+                <input id="input-cupom" className="input" value={f.cupom}
+                  onChange={e => { set('cupom', e.target.value.toUpperCase()); setCupomInfo(null); }}
+                  placeholder="Ex: INO10" />
+                <button onClick={handleValidarCupom} disabled={validandoCupom || !f.cupom.trim()}
+                  className="btn-outline text-sm px-4 py-2 whitespace-nowrap">
+                  {validandoCupom ? '...' : 'Aplicar'}
+                </button>
+              </div>
+              {cupomInfo?.valido && (
                 <div className="text-brand-purple text-[13px] mt-1.5 font-semibold">
-                  ✓ Cupom aplicado: {Math.round(desconto * 100)}% de desconto
+                  ✓ Cupom aplicado: {Math.round(cupomInfo.desconto * 100)}% de desconto
                 </div>
               )}
-              {f.cupom && !desconto && (
+              {cupomInfo && !cupomInfo.valido && (
                 <div className="text-red-500 text-[13px] mt-1.5">Cupom inválido ou expirado</div>
               )}
             </div>
@@ -241,118 +280,98 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
         {/* ── STEP 4: Pagamento ── */}
         {step === 4 && (
           <div className="mt-6 grid gap-5">
-            {/* Resumo */}
             <div className="bg-white border border-brand-lilac-mid rounded-2xl p-5">
               <div className="text-[14px] text-brand-muted">
-                {f.dist === '5km' ? 'Prova 5 km' : 'Prova 10 km'} · {categoria} · Camiseta {f.camiseta}
+                {race?.label} · {categoria} · Camiseta {f.camiseta}
               </div>
-              {loteAtual && (
-                <div className="text-[12px] text-brand-muted mt-0.5">{loteAtual.nome}</div>
-              )}
+              {loteAtual && <div className="text-[12px] text-brand-muted mt-0.5">{loteAtual.nome}</div>}
               {desconto > 0 && (
                 <div className="flex justify-between mt-2 text-[13px]">
                   <span className="text-brand-muted">Desconto ({Math.round(desconto * 100)}%)</span>
-                  <span className="text-green-600">−{formataBRL(precoBase * desconto)}</span>
+                  <span className="text-green-600 font-medium">−{formataBRL(precoBase * desconto)}</span>
                 </div>
               )}
               <div className="mt-3 flex items-baseline justify-between border-t border-brand-lilac-mid pt-3">
                 <span className="text-brand-muted text-[14px]">Total</span>
-                <span className="font-display font-extrabold text-[36px] text-brand-purple">
-                  {formataBRL(totalCentavos)}
-                </span>
+                <span className="font-display font-extrabold text-[36px] text-brand-purple">{formataBRL(total)}</span>
               </div>
             </div>
 
-            {/* Método de pagamento */}
             <div className="grid grid-cols-2 gap-3">
-              {([
-                ['pix', 'Pix', 'Confirmação na hora'] as const,
-                ['cartao', 'Cartão', 'Em até 12x'] as const,
-              ]).map(([id, titulo, sub]) => (
+              {([['pix', 'Pix', 'Confirmação imediata'], ['cartao', 'Cartão', 'Em até 12x']] as const).map(([id, titulo, sub]) => (
                 <button key={id} id={`select-pag-${id}`}
                   onClick={() => set('pag', id)}
                   className={`text-left p-4 rounded-xl border-2 transition-all duration-150
-                    ${f.pag === id
-                      ? 'bg-brand-lilac border-brand-purple-mid'
-                      : 'bg-white border-brand-lilac-mid hover:border-brand-purple-mid'}`}>
+                    ${f.pag === id ? 'bg-brand-lilac border-brand-purple-mid' : 'bg-white border-brand-lilac-mid hover:border-brand-purple-mid'}`}>
                   <div className="font-bold text-brand-ink">{titulo}</div>
                   <div className="text-[12px] text-brand-muted mt-0.5">{sub}</div>
                 </button>
               ))}
             </div>
 
-            {/* Termo */}
             <label className="flex items-start gap-3 text-[13px] text-brand-muted cursor-pointer">
               <input id="check-termo" type="checkbox" checked={f.termo}
                 onChange={e => set('termo', e.target.checked)}
-                className="mt-0.5 accent-brand-purple w-4 h-4 rounded" />
+                className="mt-0.5 accent-brand-purple w-4 h-4" />
               <span>
-                Li e aceito o{' '}
-                <span className="text-brand-purple underline">termo de responsabilidade</span>
-                {' '}e declaro estar apto(a) a participar da prova.
+                Li e aceito o <span className="text-brand-purple underline">termo de responsabilidade</span>{' '}
+                e declaro estar apto(a) a participar da prova.
               </span>
             </label>
+
+            {erroEnvio && (
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-[14px] text-red-700">
+                ❌ {erroEnvio}
+              </div>
+            )}
           </div>
         )}
 
-        {/* ── STEP 5: Confirmação ── */}
-        {step === 5 && (
+        {/* ── STEP 5: Confirmação real do Supabase ── */}
+        {step === 5 && resultado && (
           <div className="mt-6 text-center py-5 animate-fade-up">
-            {/* Ícone de sucesso */}
-            <div className="w-16 h-16 rounded-full bg-brand-purple text-white flex items-center justify-center mx-auto text-3xl font-bold shadow-brand-lg">
-              ✓
-            </div>
+            <div className="w-16 h-16 rounded-full bg-brand-purple text-white flex items-center justify-center mx-auto text-3xl font-bold shadow-brand-lg">✓</div>
             <h2 className="font-display font-extrabold italic uppercase text-[36px] text-brand-ink mt-4 leading-tight">
-              Inscrição confirmada
+              Inscrição confirmada!
             </h2>
             <p className="text-brand-muted mt-2">
-              {f.nome || 'Atleta'}, sua vaga na{' '}
-              {f.dist === '5km' ? 'Prova 5 km' : 'Prova 10 km'} está garantida.
+              {resultado.atleta_nome}, sua vaga na {resultado.prova_label} está garantida.
             </p>
 
-            {/* Card número de peito */}
             <div className="bg-white border border-brand-lilac-mid rounded-2xl p-6 mt-6 shadow-brand">
               <div className="text-[12px] text-brand-muted tracking-[0.15em] uppercase">Seu número de peito</div>
               <div className="font-display font-extrabold italic text-[80px] text-brand-purple leading-none my-2">
-                {bib}
+                {resultado.bib_number}
               </div>
-              <div className="text-[12px] text-brand-muted mb-3">
-                {categoria} · {f.dist === '5km' ? '5 km' : '10 km'}
-              </div>
+              <div className="text-[13px] text-brand-muted mb-1">{resultado.categoria} · {resultado.prova_label}</div>
+              <div className="text-[13px] text-brand-muted mb-4">{formataBRL(resultado.valor_centavos)} via {resultado.metodo === 'pix' ? 'Pix' : 'Cartão'}</div>
 
-              {/* QR code simulado */}
+              {/* QR simulado */}
               <div className="w-24 h-24 mx-auto rounded-lg overflow-hidden border-4 border-brand-ink"
-                style={{
-                  background: 'repeating-conic-gradient(#26122E 0% 25%, #fff 0% 50%)',
-                  backgroundSize: '16px 16px'
-                }} />
-              <div className="text-[12px] text-brand-muted mt-2">
-                QR de check-in · enviado ao e-mail cadastrado
-              </div>
+                style={{ background: 'repeating-conic-gradient(#26122E 0% 25%, #fff 0% 50%)', backgroundSize: '16px 16px' }} />
+              <div className="text-[12px] text-brand-muted mt-2">QR de check-in · enviado ao e-mail</div>
             </div>
 
-            <div className="mt-3 text-[13px] text-brand-muted">
-              ⚠️ <em>Nota de desenvolvimento: bib e QR são mock. Na Phase 3 (Architect) o número será gerado pelo Supabase após webhook de pagamento.</em>
+            <div className="mt-4 bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-[13px] text-green-700">
+              ✅ Inscrição salva no banco de dados · ID: {resultado.registration_id.slice(0, 8)}...
             </div>
 
-            <button id="btn-voltar-site" onClick={onDone}
-              className="btn-primary mt-6 text-[18px] px-8 py-4">
+            <button id="btn-voltar-site" onClick={onDone} className="btn-primary mt-6 text-[18px] px-8 py-4">
               Voltar ao site
             </button>
           </div>
         )}
 
-        {/* Botão avançar */}
+        {/* Botão avançar / pagar */}
         {step < 5 && (
-          <button
-            id={`btn-step-${step}-avancar`}
-            disabled={!canAdvance[step]}
-            onClick={() => setStep(s => s + 1)}
+          <button id={`btn-step-${step}-avancar`}
+            disabled={!canAdvance[step] || enviando}
+            onClick={step === 4 ? handlePagar : () => setStep(s => s + 1)}
             className={`w-full mt-7 py-4 rounded-xl font-display font-bold italic text-[18px] tracking-wider uppercase transition-all duration-150
-              ${canAdvance[step]
+              ${canAdvance[step] && !enviando
                 ? 'bg-brand-purple text-white hover:bg-brand-purple-dark active:scale-95 shadow-brand'
                 : 'bg-brand-lilac-mid text-brand-muted cursor-not-allowed'}`}>
-            {step === 4 ? `Pagar ${formataBRL(totalCentavos)}` : 'Continuar'}
+            {enviando ? 'Processando...' : step === 4 ? `Pagar ${formataBRL(total)}` : 'Continuar'}
           </button>
         )}
       </div>
