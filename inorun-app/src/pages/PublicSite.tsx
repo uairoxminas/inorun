@@ -89,14 +89,12 @@ export default function PublicSite({ onRegister, onAdmin, totalInscritos, onEven
           <Eyebrow>Corrida InoLive · Paraopeba – MG</Eyebrow>
           <div className="mt-4">
             <img
-              src="/logo.svg"
+              src="/logo.png"
               alt="INO RUN 2026"
               style={{
                 width: 'clamp(220px,40vw,540px)',
                 height: 'auto',
                 display: 'block',
-                background: 'transparent',
-                mixBlendMode: 'multiply',
               }}
               className="mb-3"
             />
