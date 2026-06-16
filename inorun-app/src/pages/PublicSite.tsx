@@ -77,19 +77,25 @@ export default function PublicSite({ onRegister, onAdmin, totalInscritos, onEven
 
       {/* ── HERO ── */}
       <header className="relative overflow-hidden bg-white">
+        {/* Arte decorativa lateral — atrás de tudo */}
         <svg aria-hidden viewBox="0 0 400 600" preserveAspectRatio="none"
-          className="absolute left-[-60px] top-0 h-full w-[300px] opacity-20 pointer-events-none">
+          className="absolute left-[-60px] top-0 h-full w-[300px] opacity-30 pointer-events-none z-0">
           <path d="M150 0 C 70 120 230 220 150 340 C 90 440 210 520 130 600 L 0 600 L 0 0 Z" fill="#FFD200" />
           <path d="M110 0 C 30 120 190 220 110 340 C 50 440 170 520 90 600 L 0 600 L 0 0 Z" fill="#8417AE" />
         </svg>
 
-        <div className="section-wrap relative py-14 md:py-20">
+        <div className="section-wrap relative py-14 md:py-20 z-10">
           <Eyebrow>Corrida InoLive · Paraopeba – MG</Eyebrow>
           <div className="mt-4">
             <img
               src="/logo.svg"
               alt="INO RUN 2026"
-              style={{ width: 'clamp(280px,45vw,620px)', height: 'auto', display: 'block' }}
+              style={{
+                width: 'clamp(220px,40vw,540px)',
+                height: 'auto',
+                display: 'block',
+                mixBlendMode: 'multiply',   /* elimina fundo branco do SVG */
+              }}
               className="mb-3"
             />
             <span className="font-display font-bold italic uppercase tracking-[0.04em] text-brand-ink"
