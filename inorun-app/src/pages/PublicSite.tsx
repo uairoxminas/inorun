@@ -183,6 +183,40 @@ export default function PublicSite({ onRegister, onAdmin, totalInscritos, onEven
         </div>
       </section>
 
+      {/* ── BANNER FOTO CORREDORES ── */}
+      <section className="relative overflow-hidden" style={{ minHeight: 420 }}>
+        {/* Foto de fundo */}
+        <img
+          src="/foto-corredores.jpg"
+          alt="Corredores INO RUN com a camiseta oficial"
+          className="absolute inset-0 w-full h-full object-cover object-top"
+        />
+        {/* Overlay gradiente roxo */}
+        <div className="absolute inset-0 bg-gradient-to-r from-brand-purple/90 via-brand-purple/60 to-transparent" />
+        {/* Conteúdo */}
+        <div className="relative section-wrap py-16 md:py-24 flex flex-col justify-center" style={{ minHeight: 420 }}>
+          <span className="font-display font-bold tracking-[0.2em] uppercase text-[13px] text-white/70 mb-3">
+            Corrida InoLive · Paraopeba – MG
+          </span>
+          <h2
+            className="font-display font-extrabold italic uppercase text-white leading-none"
+            style={{ fontSize: 'clamp(32px,7vw,72px)', maxWidth: 600 }}
+          >
+            Paraopeba vai tremer em outubro
+          </h2>
+          <p className="text-white/80 mt-4 text-base leading-relaxed max-w-[480px]">
+            Mais de 800 corredores já confirmados. Venha fazer parte dessa história
+            e cruzar a linha de chegada com a camiseta que vai marcar sua memória.
+          </p>
+          <button
+            onClick={onRegister}
+            className="mt-8 self-start bg-brand-yellow text-brand-ink font-display font-extrabold italic uppercase px-8 py-4 rounded-2xl text-[18px] hover:scale-105 transition-transform duration-200 shadow-lg"
+          >
+            Garantir minha vaga →
+          </button>
+        </div>
+      </section>
+
       {/* ── LOTES ── */}
       <section className="section-wrap pb-16">
         <div className="card p-6">
