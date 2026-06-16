@@ -1,0 +1,15 @@
+{
+  "name": "inorun-tools",
+  "version": "1.0.0",
+  "description": "INO RUN 2026 — Scripts e ferramentas de servidor (migrations, seeds, etc.)",
+  "type": "module",
+  "scripts": {
+    "migrate":      "node tools/migrate.js",
+    "migrate:dry":  "node tools/migrate.js --dry-run",
+    "migrate:undo": "node tools/migrate.js --undo"
+  },
+  "dependencies": {
+    "pg": "^8.12.0",
+    "dotenv": "^16.4.5"
+  }
+}
