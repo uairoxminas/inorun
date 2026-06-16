@@ -43,9 +43,10 @@ Registro cronológico de ações, resultados e erros.
 - `npm run dev` → rodando em `http://localhost:5173`
 
 ### Pendente na Phase 2
-- [ ] Usuário criar projeto no Supabase e fornecer URL + chave anon
-- [ ] Executar migration SQL da `handshake_test` no Supabase
-- [ ] Testar handshake em `http://localhost:5173/dev/handshake`
+- [x] .env.local criado com credenciais reais do Supabase
+- [x] GitHub publicado: https://github.com/uairoxminas/inorun.git (branch master)
+- [ ] Migration SQL da handshake_test executada no Supabase ← PRÓXIMO PASSO DO USUÁRIO
+- [ ] Handshake testado em http://localhost:5173/dev/handshake
 - [ ] Definir gateway de pagamento + handshake de sandbox
 
 ### Erros encontrados e corrigidos
