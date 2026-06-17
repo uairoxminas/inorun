@@ -43,7 +43,7 @@ BEGIN
   IF p_distancia IS NOT NULL THEN
     DELETE FROM public.race_result WHERE distancia_km = p_distancia;
   ELSE
-    DELETE FROM public.race_result;
+    DELETE FROM public.race_result WHERE id IS NOT NULL;
   END IF;
   
   RETURN jsonb_build_object('ok', true);
