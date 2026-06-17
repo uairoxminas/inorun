@@ -9,12 +9,13 @@ import GestaoLotesCupons from './admin/GestaoLotesCupons';
 import Cronograma from './admin/Cronograma';
 import Financeiro from './admin/Financeiro';
 import CheckIn from './admin/CheckIn';
+import UploadResultados from './admin/UploadResultados';
 import { getInscritos, calcularMetricas } from '../services/adminService';
 import type { InscritoRow, MetricasAdmin } from '../services/adminService';
 
 interface Props { onBack: () => void; totalInscritos: number; }
 
-type Secao = 'dashboard' | 'inscricoes' | 'lotes' | 'cronograma' | 'financeiro' | 'checkin';
+type Secao = 'dashboard' | 'inscricoes' | 'lotes' | 'cronograma' | 'financeiro' | 'checkin' | 'resultados';
 
 const NAV: { id: Secao; label: string; icon: string }[] = [
   { id: 'dashboard',  label: 'Dashboard',     icon: '📊' },
@@ -23,6 +24,7 @@ const NAV: { id: Secao; label: string; icon: string }[] = [
   { id: 'cronograma', label: 'Cronograma',     icon: '🕐' },
   { id: 'financeiro', label: 'Financeiro',     icon: '💰' },
   { id: 'checkin',    label: 'Check-in',       icon: '✅' },
+  { id: 'resultados', label: 'Resultados',     icon: '🏆' },
 ];
 
 export default function AdminPanel({ onBack }: Props) {
@@ -144,6 +146,7 @@ export default function AdminPanel({ onBack }: Props) {
           {secao === 'cronograma' && <Cronograma />}
           {secao === 'financeiro' && eventoId && <Financeiro eventoId={eventoId} />}
           {secao === 'checkin' && <CheckIn />}
+          {secao === 'resultados' && <UploadResultados />}
 
           {/* Loading state inicial */}
           {loading && secao === 'dashboard' && (

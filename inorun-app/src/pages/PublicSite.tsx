@@ -12,6 +12,8 @@ import { useCountdown } from '../hooks/useCountdown';
 import { getEventoPublico, getLoteAtivo, getLotesDaProva } from '../services/eventoService';
 import type { EventoData } from '../services/eventoService';
 import { formataBRL } from '../lib/precoLoteAtual';
+import { buscarResultadosAtleta, getResultadosLeaderboard } from '../services/resultadosService';
+import type { ResultadoRow } from '../services/resultadosService';
 
 interface Props {
   onRegister: () => void;
@@ -41,6 +43,57 @@ export default function PublicSite({ onRegister, onAdmin, totalInscritos, onEven
   const [evento, setEvento]     = useState<EventoData | null>(null);
   const [loadingEvento, setLoadingEvento] = useState(true);
 
+  // Estados para Regulamento e Resultados
+  const [modalRegulamentoAberto, setModalRegulamentoAberto] = useState(false);
+  const [modalResultadosAberto, setModalResultadosAberto] = useState(false);
+
+  // Estados para Busca de Resultados
+  const [termoBusca, setTermoBusca] = useState('');
+  const [resultadosBusca, setResultadosBusca] = useState<ResultadoRow[]>([]);
+  const [loadingBusca, setLoadingBusca] = useState(false);
+  const [realizouBusca, setRealizouBusca] = useState(false);
+
+  // Estados para Leaderboard de Resultados
+  const [distanciaLeaderboard, setDistanciaLeaderboard] = useState<number>(5);
+  const [resultadosLeaderboard, setResultadosLeaderboard] = useState<ResultadoRow[]>([]);
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
+  const [categoriaFiltro, setCategoriaFiltro] = useState('Todos');
+  const [filtroNomeLeaderboard, setFiltroNomeLeaderboard] = useState('');
+
+  // Busca atleta individual
+  const handleBuscaAtleta = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const query = termoBusca.trim();
+    if (!query) return;
+
+    setLoadingBusca(true);
+    setRealizouBusca(true);
+    const res = await buscarResultadosAtleta(query);
+    setResultadosBusca(res);
+    setLoadingBusca(false);
+  };
+
+  // Carrega leaderboard quando abre o modal ou muda a distância
+  useEffect(() => {
+    if (!modalResultadosAberto) return;
+    
+    const carregarLeaderboard = async () => {
+      setLoadingLeaderboard(true);
+      const res = await getResultadosLeaderboard(distanciaLeaderboard);
+      setResultadosLeaderboard(res);
+      setLoadingLeaderboard(false);
+    };
+    
+    carregarLeaderboard();
+  }, [modalResultadosAberto, distanciaLeaderboard]);
+
+  // Filtra o leaderboard no front-end
+  const leaderboardFiltrado = resultadosLeaderboard.filter(row => {
+    const atendeCategoria = categoriaFiltro === 'Todos' || row.categoria.toLowerCase() === categoriaFiltro.toLowerCase();
+    const atendeNome = !filtroNomeLeaderboard || row.nome.toLowerCase().includes(filtroNomeLeaderboard.toLowerCase()) || String(row.bib_number).includes(filtroNomeLeaderboard);
+    return atendeCategoria && atendeNome;
+  });
+
   useEffect(() => {
     getEventoPublico()
       .then(e => { setEvento(e); onEventoCarregado?.(e); })
@@ -67,6 +120,8 @@ export default function PublicSite({ onRegister, onAdmin, totalInscritos, onEven
             <a href="#percurso" className="hover:text-brand-purple transition-colors">Percurso</a>
             <a href="#kit"      className="hover:text-brand-purple transition-colors">Kit</a>
             <a href="#faq"      className="hover:text-brand-purple transition-colors">FAQ</a>
+            <button onClick={() => setModalRegulamentoAberto(true)} className="hover:text-brand-purple transition-colors font-medium">Regulamento</button>
+            <button onClick={() => setModalResultadosAberto(true)} className="hover:text-brand-purple transition-colors font-medium">Resultados</button>
             <button onClick={onAdmin} className="btn-ghost">Painel</button>
           </div>
           <button id="nav-inscreva-se" onClick={onRegister} className="btn-primary text-sm py-2.5 px-5">
@@ -344,10 +399,414 @@ export default function PublicSite({ onRegister, onAdmin, totalInscritos, onEven
       <footer className="bg-white border-t border-brand-lilac-mid">
         <div className="section-wrap flex flex-wrap items-center justify-between gap-3 py-8 text-[13px] text-brand-muted">
           <Logo height={24} />
+          <div className="flex items-center gap-4">
+            <button onClick={() => setModalRegulamentoAberto(true)} className="hover:text-brand-purple transition-colors font-medium">Regulamento</button>
+            <button onClick={() => setModalResultadosAberto(true)} className="hover:text-brand-purple transition-colors font-medium">Resultados</button>
+          </div>
           <span>Corrida InoLive · Paraopeba – MG · 11/10/2026</span>
           <span>© 2026 INO RUN · Todos os direitos reservados</span>
         </div>
       </footer>
+
+      {/* ── MODAL 1: REGULAMENTO (A3 - Texto Corrido) ── */}
+      {modalRegulamentoAberto && (
+        <div className="fixed inset-0 z-50 bg-white overflow-y-auto flex flex-col">
+          {/* Header Fixo do Modal */}
+          <header className="sticky top-0 bg-white border-b border-brand-lilac-mid px-6 py-4 flex items-center justify-between shadow-sm">
+            <div className="flex items-center gap-3">
+              <Logo height={26} />
+              <span className="font-display font-extrabold italic uppercase text-brand-purple text-lg border-l border-brand-lilac-mid pl-3">Regulamento Oficial</span>
+            </div>
+            <button 
+              onClick={() => setModalRegulamentoAberto(false)}
+              className="px-4 py-2 bg-brand-bg hover:bg-brand-lilac text-brand-purple border border-brand-lilac-mid rounded-xl text-sm font-semibold transition-colors"
+            >
+              Fechar Regulamento ×
+            </button>
+          </header>
+
+          {/* Conteúdo do Regulamento */}
+          <main className="flex-1 max-w-[800px] w-full mx-auto px-6 py-8">
+            {/* Regra de Tela: Caixa informativa de Objetivo/Instrução */}
+            <div className="bg-brand-lilac border border-brand-lilac-mid rounded-2xl p-5 mb-8">
+              <h3 className="font-display font-extrabold italic uppercase text-[16px] text-brand-purple-dark mb-1">
+                🎯 Informações sobre o Regulamento
+              </h3>
+              <p className="text-[13px] text-brand-muted leading-relaxed">
+                <strong>Objetivo:</strong> Este documento estabelece as regras oficiais, direitos e deveres dos atletas participantes da corrida <strong>INO RUN 2026 — Corrida InoLive</strong>.
+                <br />
+                <strong>Instruções de Leitura:</strong> Role a página para ler o regulamento completo na íntegra. Todos os participantes estão sujeitos a estas normas ao se inscreverem no evento.
+              </p>
+            </div>
+
+            {/* Texto do Regulamento */}
+            <div className="space-y-6 text-brand-ink text-[14px] leading-relaxed">
+              <div className="text-center pb-4 border-b border-brand-lilac-mid">
+                <h1 className="font-display font-extrabold italic uppercase text-3xl text-brand-purple">REGULAMENTO OFICIAL DO EVENTO</h1>
+                <p className="text-sm text-brand-muted mt-2">INO RUN 2026 — Corrida InoLive · Paraopeba - MG</p>
+              </div>
+
+              <section className="space-y-3">
+                <h2 className="font-display font-bold text-lg text-brand-purple-dark">CAPÍTULO I – A PROVA</h2>
+                <p>
+                  <strong>Artigo 1º.</strong> A corrida de rua <strong>INO RUN 2026 — Corrida InoLive</strong> será realizada no domingo, dia <strong>11 de outubro de 2026</strong>, na cidade de Paraopeba - MG, com participação de atletas de ambos os sexos, regularmente inscritos.
+                </p>
+                <p>
+                  <strong>Artigo 2º.</strong> A largada da prova ocorrerá impreterivelmente às <strong>07h00</strong>. Os atletas deverão estar presentes no local de largada com antecedência mínima de 45 minutos, portando o número de peito e o chip de cronometragem oficiais.
+                </p>
+              </section>
+
+              <section className="space-y-3">
+                <h2 className="font-display font-bold text-lg text-brand-purple-dark">CAPÍTULO II – DISTÂNCIAS E TEMPOS LIMITES</h2>
+                <p>
+                  <strong>Artigo 3º.</strong> O evento será constituído por duas modalidades de percursos de corrida de rua:
+                </p>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li><strong>Prova de 5 km:</strong> Indicada para iniciantes e intermediários, com tempo limite de conclusão estabelecido em 1 hora e 15 minutos.</li>
+                  <li><strong>Prova de 10 km:</strong> Voltada a atletas de alta performance e endurance, com tempo limite de conclusão estabelecido em 2 horas.</li>
+                </ul>
+              </section>
+
+              <section className="space-y-3">
+                <h2 className="font-display font-bold text-lg text-brand-purple-dark">CAPÍTULO III – REGRAS DE INSCRIÇÃO E LOTES</h2>
+                <p>
+                  <strong>Artigo 4º.</strong> As inscrições serão realizadas exclusivamente pela plataforma online do evento, sendo o limite de vagas fixado em <strong>280 vagas para a prova de 5 km</strong> e <strong>160 vagas para a prova de 10 km</strong>.
+                </p>
+                <p>
+                  <strong>Artigo 5º.</strong> Os valores e prazos de lotes oficiais de inscrição seguem o cronograma abaixo:
+                </p>
+                <div className="overflow-x-auto rounded-xl border border-brand-lilac-mid">
+                  <table className="w-full text-left border-collapse text-[13px]">
+                    <thead>
+                      <tr className="bg-brand-lilac text-brand-purple font-display font-bold uppercase border-b border-brand-lilac-mid">
+                        <th className="p-2.5">Modalidade</th>
+                        <th className="p-2.5">Lote 1 (até 31/07)</th>
+                        <th className="p-2.5">Lote 2 (até 30/09)</th>
+                        <th className="p-2.5">Lote 3 (até 10/10)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-brand-lilac-mid bg-white">
+                      <tr>
+                        <td className="p-2.5 font-semibold">5 km</td>
+                        <td className="p-2.5">R$ 79,00</td>
+                        <td className="p-2.5">R$ 89,00</td>
+                        <td className="p-2.5">R$ 99,00</td>
+                      </tr>
+                      <tr>
+                        <td className="p-2.5 font-semibold">10 km</td>
+                        <td className="p-2.5">R$ 99,00</td>
+                        <td className="p-2.5">R$ 109,00</td>
+                        <td className="p-2.5">R$ 119,00</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p>
+                  <strong>Artigo 6º.</strong> O CPF do participante é obrigatório, servindo como identificador único. Não serão permitidas inscrições duplicadas do mesmo CPF no mesmo evento.
+                </p>
+              </section>
+
+              <section className="space-y-3">
+                <h2 className="font-display font-bold text-lg text-brand-purple-dark">CAPÍTULO IV – CATEGORIAS E CRONOMETRAGEM</h2>
+                <p>
+                  <strong>Artigo 7º.</strong> As categorias de premiação por faixa etária (masculina e feminina) nas distâncias de 5 km e 10 km são baseadas na idade do atleta na data da prova (11/10/2026):
+                  <br />
+                  <span className="font-semibold block mt-1 text-brand-purple">Sub-20 · 20-24 · 25-29 · 30-34 · 35-39 · 40-44 · 45-49 · 50+</span>
+                </p>
+                <p>
+                  <strong>Artigo 8º.</strong> O sistema de cronometragem eletrônica será feito por chip descartável fixado ao número de peito. É de responsabilidade do atleta o posicionamento correto do equipamento. A alteração ou ausência do chip desclassificará o competidor.
+                </p>
+              </section>
+
+              <section className="space-y-3">
+                <h2 className="font-display font-bold text-lg text-brand-purple-dark">CAPÍTULO V – RETIRADA DE KITS</h2>
+                <p>
+                  <strong>Artigo 9º.</strong> O kit oficial de participação do atleta compreende a camiseta dry-fit técnica exclusiva da prova, sacochila, número de peito e chip de cronometragem.
+                </p>
+                <p>
+                  <strong>Artigo 10.</strong> A entrega de kits ocorrerá na véspera da prova em local e horários divulgados nas mídias oficiais. Para retirada, o atleta deve apresentar documento oficial com foto e o comprovante de pagamento. A retirada por terceiros exige autorização assinada e cópia do documento do titular.
+                </p>
+              </section>
+
+              <section className="space-y-3">
+                <h2 className="font-display font-bold text-lg text-brand-purple-dark">CAPÍTULO VI – PREMIAÇÃO</h2>
+                <p>
+                  <strong>Artigo 11.</strong> Serão premiados com troféus exclusivos:
+                </p>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>Os 3 (três) primeiros colocados da classificação Geral (Masculino e Feminino) nas provas de 5 km e 10 km.</li>
+                  <li>O 1º (primeiro) colocado de cada Categoria de faixa etária (Masculino e Feminino) nas provas de 5 km e 10 km.</li>
+                  <li>Medalha de participação (Finisher) para todos os inscritos que cruzarem a linha de chegada dentro do tempo limite da prova.</li>
+                </ul>
+              </section>
+
+              <section className="space-y-3 border-t border-brand-lilac-mid pt-4">
+                <h2 className="font-display font-bold text-lg text-brand-purple-dark">CAPÍTULO VII – DISPOSIÇÕES FINAIS</h2>
+                <p>
+                  <strong>Artigo 12.</strong> Ao se inscrever, o atleta assume total responsabilidade pelo seu estado de saúde e condicionamento físico para a prática da modalidade. O evento contará com serviço de atendimento de ambulância de primeiros socorros de plantão.
+                </p>
+                <p>
+                  <strong>Artigo 13.</strong> O atleta autoriza o uso gratuito de sua imagem (fotografias e filmagens da prova) pela organização do evento para fins promocionais e jornalísticos.
+                </p>
+              </section>
+
+              <div className="text-center pt-8 border-t border-brand-lilac-mid">
+                <button 
+                  onClick={() => setModalRegulamentoAberto(false)}
+                  className="btn-primary px-8 py-3.5 text-sm"
+                >
+                  Li e Entendi o Regulamento
+                </button>
+              </div>
+            </div>
+          </main>
+        </div>
+      )}
+
+      {/* ── MODAL 2: RESULTADOS (B1 - Consulta Dinâmica + Leaderboard) ── */}
+      {modalResultadosAberto && (
+        <div className="fixed inset-0 z-50 bg-white overflow-y-auto flex flex-col">
+          {/* Header Fixo do Modal */}
+          <header className="sticky top-0 bg-white border-b border-brand-lilac-mid px-6 py-4 flex items-center justify-between shadow-sm">
+            <div className="flex items-center gap-3">
+              <Logo height={26} />
+              <span className="font-display font-extrabold italic uppercase text-brand-purple text-lg border-l border-brand-lilac-mid pl-3">Resultados Oficiais</span>
+            </div>
+            <button 
+              onClick={() => {
+                setModalResultadosAberto(false);
+                setTermoBusca('');
+                setResultadosBusca([]);
+                setRealizouBusca(false);
+              }}
+              className="px-4 py-2 bg-brand-bg hover:bg-brand-lilac text-brand-purple border border-brand-lilac-mid rounded-xl text-sm font-semibold transition-colors"
+            >
+              Fechar Resultados ×
+            </button>
+          </header>
+
+          {/* Conteúdo de Resultados */}
+          <main className="flex-1 max-w-[1000px] w-full mx-auto px-6 py-8 space-y-8">
+            
+            {/* Regra de Tela: Caixa informativa de Objetivo/Instrução */}
+            <div className="bg-brand-lilac border border-brand-lilac-mid rounded-2xl p-5">
+              <h3 className="font-display font-extrabold italic uppercase text-[16px] text-brand-purple-dark mb-1">
+                🏆 Instruções de Busca e Classificação
+              </h3>
+              <p className="text-[13px] text-brand-muted leading-relaxed">
+                <strong>Objetivo:</strong> Consultar os tempos oficiais, ritmo médio (pace) e classificação dos participantes da corrida INO RUN 2026.
+                <br />
+                <strong>Consulta Individual:</strong> No campo abaixo, digite o seu <strong>Nome completo</strong> ou o seu <strong>Número de Peito (Bib)</strong> e clique em buscar para visualizar sua ficha detalhada de classificação.
+                <br />
+                <strong>Classificação Completa (Leaderboard):</strong> Role para a seção de ranking para visualizar e filtrar a tabela de posições gerais de cada prova.
+              </p>
+            </div>
+
+            {/* 1. Busca Dinâmica Individual */}
+            <div className="card p-6 space-y-6">
+              <h3 className="font-display font-extrabold italic uppercase text-[20px] text-brand-ink">
+                Consulta Individual de Tempo
+              </h3>
+              <form onSubmit={handleBuscaAtleta} className="flex gap-2.5">
+                <input
+                  type="text"
+                  value={termoBusca}
+                  onChange={(e) => setTermoBusca(e.target.value)}
+                  placeholder="Busque por Nome do Atleta ou Número do Peito (Bib)..."
+                  className="flex-1 border border-brand-lilac-mid rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-brand-purple bg-brand-bg text-brand-ink"
+                />
+                <button type="submit" className="btn-primary text-sm px-6 py-3">
+                  {loadingBusca ? 'Buscando...' : 'Buscar'}
+                </button>
+              </form>
+
+              {/* Resultado da Busca */}
+              {realizouBusca && (
+                <div className="mt-4 space-y-4">
+                  {loadingBusca ? (
+                    <div className="h-24 bg-brand-lilac rounded-xl animate-pulse flex items-center justify-center text-brand-muted text-sm">
+                      Buscando atleta no banco de dados...
+                    </div>
+                  ) : resultadosBusca.length > 0 ? (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {resultadosBusca.map((atleta) => (
+                        <div key={atleta.id} className="border border-brand-purple-mid bg-brand-lilac rounded-2xl p-5 shadow-sm space-y-4">
+                          <div className="flex items-center justify-between border-b border-brand-lilac-mid pb-3">
+                            <div>
+                              <span className="inline-flex px-2 py-0.5 bg-brand-purple text-white font-display font-extrabold italic uppercase text-[12px] rounded-md mr-2">
+                                {atleta.distancia_km}K
+                              </span>
+                              <span className="text-xs text-brand-muted font-semibold">Dorsal #{atleta.bib_number}</span>
+                            </div>
+                            <span className="font-display font-extrabold text-[22px] text-brand-purple">
+                              {atleta.colocacao_geral}º Geral
+                            </span>
+                          </div>
+                          
+                          <h4 className="font-display font-bold uppercase text-[18px] text-brand-ink leading-tight">
+                            {atleta.nome}
+                          </h4>
+
+                          <div className="grid grid-cols-2 gap-4 text-xs border-b border-brand-lilac-mid pb-3">
+                            <div>
+                              <span className="text-brand-muted block uppercase tracking-wider font-semibold">Tempo Líquido</span>
+                              <span className="font-display font-extrabold text-[24px] text-brand-purple-dark">{atleta.tempo_liquido}</span>
+                            </div>
+                            <div>
+                              <span className="text-brand-muted block uppercase tracking-wider font-semibold">Tempo Bruto</span>
+                              <span className="font-display font-bold text-[20px] text-brand-ink">{atleta.tempo_bruto}</span>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-2 text-center text-[12px]">
+                            <div className="bg-white rounded-lg p-2 border border-brand-lilac-mid">
+                              <span className="text-brand-muted block font-semibold">Pace</span>
+                              <span className="font-bold text-brand-ink text-sm">{atleta.pace} /km</span>
+                            </div>
+                            <div className="bg-white rounded-lg p-2 border border-brand-lilac-mid">
+                              <span className="text-brand-muted block font-semibold">Pos Categoria</span>
+                              <span className="font-bold text-brand-ink text-sm">{atleta.colocacao_categoria}º</span>
+                              <span className="text-[10px] text-brand-muted block font-mono">{atleta.categoria}</span>
+                            </div>
+                            <div className="bg-white rounded-lg p-2 border border-brand-lilac-mid">
+                              <span className="text-brand-muted block font-semibold">Pos Sexo ({atleta.sexo})</span>
+                              <span className="font-bold text-brand-ink text-sm">{atleta.colocacao_sexo}º</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="bg-brand-bg border border-brand-lilac-mid rounded-xl p-6 text-center text-sm text-brand-muted">
+                      Nenhum atleta ou classificação encontrada para a busca "{termoBusca}". Verifique se digitou o número ou nome corretamente.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 2. Leaderboard Geral */}
+            <div className="card p-6 space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-brand-lilac-mid pb-4">
+                <div>
+                  <h3 className="font-display font-extrabold italic uppercase text-[20px] text-brand-ink">
+                    Classificação Geral & Categorias
+                  </h3>
+                  <p className="text-xs text-brand-muted mt-0.5">Explore e filtre o ranking completo dos corredores</p>
+                </div>
+                
+                {/* Abas de Distância */}
+                <div className="flex bg-brand-bg p-1 rounded-xl border border-brand-lilac-mid">
+                  <button
+                    onClick={() => {
+                      setDistanciaLeaderboard(5);
+                      setCategoriaFiltro('Todos');
+                    }}
+                    className={`px-4 py-2 font-display font-extrabold italic uppercase text-[14px] rounded-lg transition-all ${distanciaLeaderboard === 5 ? 'bg-brand-purple text-white shadow-sm' : 'text-brand-muted hover:text-brand-ink'}`}
+                  >
+                    5 KM
+                  </button>
+                  <button
+                    onClick={() => {
+                      setDistanciaLeaderboard(10);
+                      setCategoriaFiltro('Todos');
+                    }}
+                    className={`px-4 py-2 font-display font-extrabold italic uppercase text-[14px] rounded-lg transition-all ${distanciaLeaderboard === 10 ? 'bg-brand-purple text-white shadow-sm' : 'text-brand-muted hover:text-brand-ink'}`}
+                  >
+                    10 KM
+                  </button>
+                </div>
+              </div>
+
+              {/* Filtros de Ranking */}
+              <div className="flex flex-wrap gap-3">
+                <div className="flex-1 min-w-[200px]">
+                  <label className="text-[11px] text-brand-muted block font-semibold uppercase tracking-wider mb-1">Filtrar por Nome / Bib</label>
+                  <input
+                    type="text"
+                    value={filtroNomeLeaderboard}
+                    onChange={(e) => setFiltroNomeLeaderboard(e.target.value)}
+                    placeholder="Filtrar por nome ou peito na lista..."
+                    className="border border-brand-lilac-mid rounded-lg px-3 py-2 text-xs w-full bg-brand-bg text-brand-ink focus:outline-none focus:border-brand-purple"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-brand-muted block font-semibold uppercase tracking-wider mb-1">Filtrar por Categoria</label>
+                  <select
+                    value={categoriaFiltro}
+                    onChange={(e) => setCategoriaFiltro(e.target.value)}
+                    className="border border-brand-lilac-mid rounded-lg px-3 py-2 text-xs bg-brand-bg text-brand-ink focus:outline-none focus:border-brand-purple"
+                  >
+                    <option value="Todos">Todas as Categorias</option>
+                    <option value="M Sub-20">Masculino Sub-20</option>
+                    <option value="F Sub-20">Feminino Sub-20</option>
+                    <option value="M 20-24">Masculino 20-24</option>
+                    <option value="F 20-24">Feminino 20-24</option>
+                    <option value="M 25-29">Masculino 25-29</option>
+                    <option value="F 25-29">Feminino 25-29</option>
+                    <option value="M 30-34">Masculino 30-34</option>
+                    <option value="F 30-34">Feminino 30-34</option>
+                    <option value="M 35-39">Masculino 35-39</option>
+                    <option value="F 35-39">Feminino 35-39</option>
+                    <option value="M 40-44">Masculino 40-44</option>
+                    <option value="F 40-44">Feminino 40-44</option>
+                    <option value="M 45-49">Masculino 45-49</option>
+                    <option value="F 45-49">Feminino 45-49</option>
+                    <option value="M 50+">Masculino 50+</option>
+                    <option value="F 50+">Feminino 50+</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Tabela de Ranking */}
+              {loadingLeaderboard ? (
+                <div className="h-48 bg-brand-lilac rounded-xl animate-pulse flex items-center justify-center text-brand-muted text-sm">
+                  Carregando lista de classificação oficial...
+                </div>
+              ) : leaderboardFiltrado.length > 0 ? (
+                <div className="overflow-x-auto rounded-xl border border-brand-lilac-mid">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-brand-lilac text-brand-purple font-display font-bold uppercase border-b border-brand-lilac-mid">
+                        <th className="p-3">Posição</th>
+                        <th className="p-3">Bib</th>
+                        <th className="p-3">Nome</th>
+                        <th className="p-3">Sexo</th>
+                        <th className="p-3">Categoria</th>
+                        <th className="p-3">Pos Cat</th>
+                        <th className="p-3">Tempo Líquido</th>
+                        <th className="p-3">Pace</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-brand-lilac-mid bg-white">
+                      {leaderboardFiltrado.map((row) => (
+                        <tr key={row.id} className="hover:bg-brand-bg transition-colors">
+                          <td className="p-3 font-semibold text-brand-ink">{row.colocacao_geral}º</td>
+                          <td className="p-3">#{row.bib_number}</td>
+                          <td className="p-3 font-medium text-brand-ink">{row.nome}</td>
+                          <td className="p-3">{row.sexo}</td>
+                          <td className="p-3 font-mono">{row.categoria}</td>
+                          <td className="p-3">{row.colocacao_categoria}º</td>
+                          <td className="p-3 font-semibold text-brand-purple">{row.tempo_liquido}</td>
+                          <td className="p-3 font-mono">{row.pace} /km</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="bg-brand-bg border border-brand-lilac-mid rounded-xl p-12 text-center space-y-2">
+                  <span className="text-3xl block">🏆</span>
+                  <h4 className="font-display font-extrabold italic uppercase text-brand-purple-dark text-[16px]">Aguardando Classificação Oficial</h4>
+                  <p className="text-xs text-brand-muted max-w-sm mx-auto leading-relaxed">
+                    Os resultados oficiais de cronometragem da prova de <strong>{distanciaLeaderboard} km</strong> estarão disponíveis nesta seção logo após a apuração no dia do evento (11/10/2026).
+                  </p>
+                </div>
+              )}
+            </div>
+          </main>
+        </div>
+      )}
     </div>
   );
 }
