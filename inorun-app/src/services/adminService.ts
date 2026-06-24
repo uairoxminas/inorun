@@ -109,11 +109,12 @@ export function calcularMetricas(inscritos: InscritoRow[]): MetricasAdmin {
   const cancelados  = inscritos.filter(i => i.status === 'cancelado');
   const checkins    = inscritos.filter(i => i.checked_in_at);
 
-  // Por camiseta
-  const CAMISETAS = ['PP', 'P', 'M', 'G', 'GG', 'XG'];
+  // Por camiseta — inclui tamanhos Kids (8, 10, 12) e adultos
+  const CAMISETAS_TODOS = ['8', '10', '12', 'PP', 'P', 'M', 'G', 'GG', 'XG'];
   const por_camiseta: MetricasAdmin['por_camiseta'] = {};
-  CAMISETAS.forEach(c => {
+  CAMISETAS_TODOS.forEach(c => {
     const grupo = inscritos.filter(i => i.camiseta === c && i.status !== 'cancelado');
+    if (grupo.length === 0) return; // omite tamanhos sem inscrição
     por_camiseta[c] = {
       total: grupo.length,
       km5:  grupo.filter(i => i.distancia === 5).length,
@@ -289,9 +290,13 @@ export async function getFinanceiro(evento_id: string): Promise<FinanceiroRow[]>
 }
 
 export interface ResumoFinanceiro {
-  total_receitas: number;
-  total_despesas: number;
-  saldo: number;
+  total_receitas:  number;
+  total_despesas:  number;
+  saldo:           number;
+  // Taxa de plataforma (Opção B: campo separado em payment → despesa automática)
+  receita_bruta_inscricoes:   number; // soma receita categoria 'inscricao'
+  taxa_plataforma_total:       number; // soma despesa categoria 'taxa_plataforma'
+  receita_liquida_inscricoes:  number; // receita_bruta - taxa
   por_categoria_receita: Record<string, number>;
   por_categoria_despesa: Record<string, number>;
 }
@@ -308,9 +313,17 @@ export function calcularResumoFinanceiro(entries: FinanceiroRow[]): ResumoFinanc
   const por_cat_d: Record<string, number> = {};
   despesas.forEach(e => { por_cat_d[e.categoria] = (por_cat_d[e.categoria] ?? 0) + e.valor_centavos; });
 
+  // Taxa de plataforma (Opção B): isolada do restante das despesas
+  const receita_bruta_inscricoes  = por_cat_r['inscricao'] ?? 0;
+  const taxa_plataforma_total     = por_cat_d['taxa_plataforma'] ?? 0;
+  const receita_liquida_inscricoes = receita_bruta_inscricoes - taxa_plataforma_total;
+
   return {
     total_receitas, total_despesas,
     saldo: total_receitas - total_despesas,
+    receita_bruta_inscricoes,
+    taxa_plataforma_total,
+    receita_liquida_inscricoes,
     por_categoria_receita: por_cat_r,
     por_categoria_despesa: por_cat_d,
   };

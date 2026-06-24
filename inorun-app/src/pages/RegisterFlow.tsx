@@ -63,7 +63,10 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
   const loteAtual = (evento && f.race_id) ? getLoteAtivo(evento.lots, f.race_id) : null;
   const precoBase = loteAtual?.preco_centavos ?? 0;
   const desconto  = cupomInfo?.valido ? cupomInfo.desconto : 0;
-  const total     = Math.round(precoBase * (1 - desconto));
+  // Opção B: valor líquido da inscrição separado da taxa de plataforma
+  const TAXA_PLATAFORMA = 500;                                // R$5,00 fixo
+  const valorInscricao  = Math.round(precoBase * (1 - desconto)); // pós-cupom, sem taxa
+  const total           = valorInscricao + TAXA_PLATAFORMA;   // total cobrado do atleta
 
   // Categoria calculada automaticamente
   const categoria = useMemo(() => {
@@ -135,14 +138,15 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
           telefone: f.tel, contato_emergencia: f.emergencia,
         },
         {
-          race_id:          f.race_id,
-          lot_id:           loteAtual.id,
-          event_id:         evento.id,
-          modalidade:       f.modalidade as Modalidade,
-          camiseta:         f.camiseta as 'PP' | 'P' | 'M' | 'G' | 'GG' | 'XG',
-          cupom_id:         cupomInfo?.id,
-          valor_centavos:   total,
-          metodo_pagamento: f.pag,
+          race_id:                  f.race_id,
+          lot_id:                   loteAtual.id,
+          event_id:                 evento.id,
+          modalidade:               f.modalidade as Modalidade,
+          camiseta:                 f.camiseta as 'PP' | 'P' | 'M' | 'G' | 'GG' | 'XG' | '8' | '10' | '12',
+          cupom_id:                 cupomInfo?.id,
+          valor_centavos:           valorInscricao,   // líquido (sem taxa)
+          taxa_plataforma_centavos: TAXA_PLATAFORMA,  // R$5,00 separado
+          metodo_pagamento:         f.pag,
         },
         { label: race.label }
       );
@@ -457,17 +461,35 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
                 {race?.label} · {categoria} · Camiseta {f.camiseta}
               </div>
               {loteAtual && <div className="text-[12px] text-brand-muted mt-0.5">{loteAtual.nome}</div>}
+
+              {/* Desconto de cupom */}
               {desconto > 0 && (
                 <div className="flex justify-between mt-2 text-[13px]">
                   <span className="text-brand-muted">Desconto ({Math.round(desconto * 100)}%)</span>
                   <span className="text-green-600 font-medium">−{formataBRL(precoBase * desconto)}</span>
                 </div>
               )}
-              <div className="mt-3 flex items-baseline justify-between border-t border-brand-lilac-mid pt-3">
-                <span className="text-brand-muted text-[14px]">Total</span>
-                <span className="font-display font-extrabold text-[36px] text-brand-purple">{formataBRL(total)}</span>
+
+              {/* Breakdown: inscrição + taxa de plataforma */}
+              <div className="mt-3 pt-3 border-t border-brand-lilac-mid space-y-1.5">
+                <div className="flex justify-between text-[13px]">
+                  <span className="text-brand-muted">Inscrição</span>
+                  <span className="text-brand-ink font-medium">{formataBRL(valorInscricao)}</span>
+                </div>
+                <div className="flex justify-between text-[13px]">
+                  <span className="text-brand-muted flex items-center gap-1">
+                    Taxa de plataforma
+                    <span className="bg-brand-lilac text-brand-purple-dark text-[10px] px-1.5 rounded-full">INO RUN</span>
+                  </span>
+                  <span className="text-brand-muted font-medium">{formataBRL(TAXA_PLATAFORMA)}</span>
+                </div>
+                <div className="flex items-baseline justify-between border-t border-brand-lilac-mid pt-2 mt-1">
+                  <span className="text-brand-muted text-[14px]">Total a pagar</span>
+                  <span className="font-display font-extrabold text-[36px] text-brand-purple">{formataBRL(total)}</span>
+                </div>
               </div>
             </div>
+
 
             <div className="grid grid-cols-2 gap-3">
               {([['pix', 'Pix', 'Confirmação imediata'], ['cartao', 'Cartão', 'Em até 12x']] as const).map(([id, titulo, sub]) => (

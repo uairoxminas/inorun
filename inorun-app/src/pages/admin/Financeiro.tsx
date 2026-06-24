@@ -8,10 +8,11 @@ import {
 import type { FinanceiroRow, ResumoFinanceiro } from '../../services/adminService';
 
 const CATS_RECEITA = ['inscricao', 'patrocinio', 'venda_kit', 'outros_receita'];
-const CATS_DESPESA = ['taxa_gateway', 'material', 'logistica', 'premiacao', 'marketing', 'staff', 'outros_despesa'];
+const CATS_DESPESA = ['taxa_gateway', 'taxa_plataforma', 'material', 'logistica', 'premiacao', 'marketing', 'staff', 'outros_despesa'];
 const CAT_LABEL: Record<string, string> = {
   inscricao: 'Inscrição', patrocinio: 'Patrocínio', venda_kit: 'Venda de kit', outros_receita: 'Outros (receita)',
-  taxa_gateway: 'Taxa gateway', material: 'Materiais', logistica: 'Logística', premiacao: 'Premiação',
+  taxa_gateway: 'Taxa gateway', taxa_plataforma: 'Taxa de plataforma (R$5/insc.)',
+  material: 'Materiais', logistica: 'Logística', premiacao: 'Premiação',
   marketing: 'Marketing', staff: 'Staff/Equipe', outros_despesa: 'Outros (despesa)',
 };
 
@@ -73,7 +74,7 @@ export default function Financeiro({ eventoId }: Props) {
         Controle Financeiro
       </h2>
 
-      {/* Resumo financeiro */}
+      {/* Resumo financeiro geral */}
       {resumo && (
         <div className="grid gap-3 grid-cols-1 md:grid-cols-3">
           <div className="card p-5 border-green-300">
@@ -88,6 +89,50 @@ export default function Financeiro({ eventoId }: Props) {
             <div className="text-[11px] text-brand-muted uppercase tracking-[0.12em]">Saldo líquido</div>
             <div className={`font-display font-extrabold text-[28px] mt-1 ${resumo.saldo >= 0 ? 'text-brand-purple' : 'text-red-600'}`}>
               {resumo.saldo >= 0 ? '+' : ''}{formataBRL(Math.abs(resumo.saldo))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DRE de Inscrições — breakout da taxa de plataforma */}
+      {resumo && resumo.receita_bruta_inscricoes > 0 && (
+        <div className="card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-lg">📊</span>
+            <div className="font-semibold text-brand-ink">DRE de Inscrições · Taxa de Plataforma</div>
+          </div>
+          <div className="space-y-0 divide-y divide-brand-lilac-mid">
+            {/* Receita bruta */}
+            <div className="flex items-center justify-between py-3">
+              <div>
+                <div className="text-[14px] font-medium text-brand-ink">Receita bruta de inscrições</div>
+                <div className="text-[11px] text-brand-muted">Total pago pelos atletas (sem taxa)</div>
+              </div>
+              <span className="font-display font-bold text-[18px] text-green-600">
+                +{formataBRL(resumo.receita_bruta_inscricoes)}
+              </span>
+            </div>
+            {/* Taxa plataforma */}
+            <div className="flex items-center justify-between py-3">
+              <div>
+                <div className="text-[14px] font-medium text-brand-ink">Taxa de plataforma</div>
+                <div className="text-[11px] text-brand-muted">
+                  R$5,00 × {Math.round(resumo.taxa_plataforma_total / 500)} inscrições confirmadas
+                </div>
+              </div>
+              <span className="font-display font-bold text-[18px] text-red-500">
+                −{formataBRL(resumo.taxa_plataforma_total)}
+              </span>
+            </div>
+            {/* Receita líquida */}
+            <div className="flex items-center justify-between py-3 bg-brand-lilac/30 rounded-xl px-3">
+              <div>
+                <div className="text-[14px] font-bold text-brand-ink">Receita líquida de inscrições</div>
+                <div className="text-[11px] text-brand-muted">O que o evento recebe após a taxa</div>
+              </div>
+              <span className="font-display font-extrabold text-[22px] text-brand-purple">
+                {formataBRL(resumo.receita_liquida_inscricoes)}
+              </span>
             </div>
           </div>
         </div>

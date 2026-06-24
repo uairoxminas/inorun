@@ -25,10 +25,11 @@ export interface DadosInscricao {
   race_id: string;
   lot_id: string;
   event_id: string;
-  modalidade: Modalidade; // v2: 'corrida' | 'kids' | 'caminhada'
-  camiseta: 'PP' | 'P' | 'M' | 'G' | 'GG' | 'XG' | '8' | '10' | '12'; // + tamanhos Kids
+  modalidade: Modalidade;
+  camiseta: 'PP' | 'P' | 'M' | 'G' | 'GG' | 'XG' | '8' | '10' | '12';
   cupom_id?: string;
-  valor_centavos: number;
+  valor_centavos:          number; // preço líquido da inscrição (sem taxa)
+  taxa_plataforma_centavos: number; // R$5,00 fixo = 500 centavos
   metodo_pagamento: 'pix' | 'cartao';
 }
 
@@ -116,10 +117,11 @@ async function criarPagamento(
     .from('payment')
     .insert({
       registration_id,
-      gateway:        'mock',
-      metodo:         inscricao.metodo_pagamento,
-      valor_centavos: inscricao.valor_centavos,
-      status:         'criado',
+      gateway:                  'mock',
+      metodo:                   inscricao.metodo_pagamento,
+      valor_centavos:           inscricao.valor_centavos,          // preço líquido
+      taxa_plataforma_centavos: inscricao.taxa_plataforma_centavos, // R$5,00
+      status:                   'criado',
       gateway_ref,
     })
     .select('gateway_ref')
