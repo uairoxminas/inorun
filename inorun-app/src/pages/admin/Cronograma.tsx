@@ -5,11 +5,15 @@ import { getWaves, salvarOnda } from '../../services/adminService';
 import type { WaveRow } from '../../services/adminService';
 import { supabase } from '../../lib/supabase';
 
-const CATEGORIAS_TODAS = [
-  'F Sub-20','M Sub-20','F 20-24','M 20-24','F 25-29','M 25-29',
-  'F 30-34','M 30-34','F 35-39','M 35-39','F 40-44','M 40-44',
-  'F 45-49','M 45-49','F 50+','M 50+',
+// Categorias v2 — INO RUN 2026
+const CATEGORIAS_CORRIDA = [
+  'F Sub-20', 'M Sub-20',
+  'F 20-29',  'M 20-29',
+  'F 30-39',  'M 30-39',
+  'F 40-49',  'M 40-49',
+  'F 50+',    'M 50+',
 ];
+const CATEGORIAS_ESPECIAIS = ['Kids Geral', 'Caminhada'];
 const CORES = ['#8417AE','#5B0E7A','#A93FD0','#FFD200','#FF6B35','#2D9CDB'];
 
 export default function Cronograma() {
@@ -55,10 +59,6 @@ export default function Cronograma() {
     setEditando({ ...editando, categorias: has ? editando.categorias.filter(c => c !== cat) : [...editando.categorias, cat] });
   };
 
-  // Agrupa por prova
-  const waves5k  = waves.filter(w => w.prova?.includes('5'));
-  const waves10k = waves.filter(w => w.prova?.includes('10'));
-
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -78,15 +78,21 @@ export default function Cronograma() {
         <strong>Objetivo:</strong> defina as ondas/grupos de largada por categoria e horário.
         Isso gera o cronograma oficial do evento para organização e comunicação aos atletas.
         As categorias são calculadas automaticamente (sexo + faixa etária em 11/10/2026).
+        <br /><strong>Categorias v2:</strong> Sub-20 (13-19 anos) · 20-29 · 30-39 · 40-49 · 50+ · <span className="text-yellow-600 font-bold">Kids Geral</span> · <span className="text-green-700 font-bold">Caminhada</span>
       </div>
 
       {loading ? (
         <div className="space-y-3">{[0,1,2].map(i => <div key={i} className="h-20 bg-brand-lilac rounded-xl animate-pulse" />)}</div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2">
-          {[{ label: 'Prova 5 km', ws: waves5k }, { label: 'Prova 10 km', ws: waves10k }].map(({ label, ws }) => (
+          {[
+            { label: 'Prova 5 km',      emoji: '🏃', ws: waves.filter(w => w.prova?.includes('5') && !w.prova?.toLowerCase().includes('kids') && !w.prova?.toLowerCase().includes('caminhada')) },
+            { label: 'Prova 10 km',     emoji: '🏃', ws: waves.filter(w => w.prova?.includes('10')) },
+            { label: 'Kids 5 km',       emoji: '🎖️', ws: waves.filter(w => w.prova?.toLowerCase().includes('kids')) },
+            { label: 'Caminhada 5 km',  emoji: '🚶', ws: waves.filter(w => w.prova?.toLowerCase().includes('caminhada')) },
+          ].map(({ label, emoji, ws }) => (
             <div key={label}>
-              <h3 className="font-display font-bold text-[20px] text-brand-ink mb-3">{label}</h3>
+              <h3 className="font-display font-bold text-[18px] text-brand-ink mb-3">{emoji} {label}</h3>
               <div className="space-y-3">
                 {ws.length === 0 ? (
                   <p className="text-brand-muted text-[13px]">Nenhuma onda configurada</p>
@@ -100,7 +106,11 @@ export default function Cronograma() {
                         </div>
                         <div className="flex flex-wrap gap-1 mt-2">
                           {w.categorias.map(c => (
-                            <span key={c} className="text-[11px] bg-brand-lilac text-brand-purple-dark px-2 py-0.5 rounded-full">{c}</span>
+                            <span key={c} className={`text-[11px] px-2 py-0.5 rounded-full ${
+                              c === 'Kids Geral' ? 'bg-yellow-100 text-yellow-800' :
+                              c === 'Caminhada'  ? 'bg-green-100 text-green-800' :
+                              'bg-brand-lilac text-brand-purple-dark'
+                            }`}>{c}</span>
                           ))}
                         </div>
                       </div>
@@ -165,17 +175,39 @@ export default function Cronograma() {
               </div>
               <div>
                 <label className="label">Categorias desta onda</label>
-                <div className="flex flex-wrap gap-2 mt-1">
-                  {CATEGORIAS_TODAS.map(c => (
-                    <button key={c} onClick={() => toggleCategoria(c)}
-                      className={`text-[12px] px-3 py-1 rounded-full border transition-all ${
-                        editando.categorias.includes(c)
-                          ? 'bg-brand-purple text-white border-brand-purple'
-                          : 'bg-white text-brand-muted border-brand-lilac-mid hover:border-brand-purple'
-                      }`}>
-                      {c}
-                    </button>
-                  ))}
+                <div className="mt-1 space-y-3">
+                  <div>
+                    <div className="text-[11px] font-semibold text-brand-muted uppercase tracking-widest mb-1">Corrida (por sexo + faixa)</div>
+                    <div className="flex flex-wrap gap-2">
+                      {CATEGORIAS_CORRIDA.map(c => (
+                        <button key={c} onClick={() => toggleCategoria(c)}
+                          className={`text-[12px] px-3 py-1 rounded-full border transition-all ${
+                            editando.categorias.includes(c)
+                              ? 'bg-brand-purple text-white border-brand-purple'
+                              : 'bg-white text-brand-muted border-brand-lilac-mid hover:border-brand-purple'
+                          }`}>
+                          {c}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-semibold text-brand-muted uppercase tracking-widest mb-1">Modalidades especiais</div>
+                    <div className="flex flex-wrap gap-2">
+                      {CATEGORIAS_ESPECIAIS.map(c => (
+                        <button key={c} onClick={() => toggleCategoria(c)}
+                          className={`text-[12px] px-3 py-1 rounded-full border transition-all ${
+                            editando.categorias.includes(c)
+                              ? c === 'Kids Geral'
+                                ? 'bg-yellow-400 text-yellow-900 border-yellow-400'
+                                : 'bg-green-500 text-white border-green-500'
+                              : 'bg-white text-brand-muted border-brand-lilac-mid hover:border-brand-purple'
+                          }`}>
+                          {c === 'Kids Geral' ? '🎖️ Kids Geral' : '🚶 Caminhada'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

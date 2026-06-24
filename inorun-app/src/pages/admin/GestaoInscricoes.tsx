@@ -42,6 +42,8 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
   const [eStatus, setEStatus]     = useState('');
   const [eErro, setEErro]         = useState('');
 
+  const [filtroModalidade, setFiltroModalidade] = useState('todas');
+
   const filtrados = inscritos.filter(r => {
     const matchB = !busca ||
       r.nome?.toLowerCase().includes(busca.toLowerCase()) ||
@@ -50,7 +52,11 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
       r.categoria?.toLowerCase().includes(busca.toLowerCase());
     const matchS = filtroStatus === 'todos' || r.status === filtroStatus;
     const matchP = filtroProva  === 'todos' || String(r.distancia) === filtroProva;
-    return matchB && matchS && matchP;
+    const matchM = filtroModalidade === 'todas' ||
+      (filtroModalidade === 'kids'      && r.categoria === 'Kids Geral') ||
+      (filtroModalidade === 'caminhada' && r.categoria === 'Caminhada') ||
+      (filtroModalidade === 'corrida'   && r.categoria !== 'Kids Geral' && r.categoria !== 'Caminhada');
+    return matchB && matchS && matchP && matchM;
   });
 
   const paginas  = Math.ceil(filtrados.length / POR_PAG);
@@ -141,6 +147,13 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
           <option value="5">5 km</option>
           <option value="10">10 km</option>
         </select>
+        <select value={filtroModalidade} onChange={e => { setFiltroModalidade(e.target.value); setPag(1); }}
+          className="input text-[13px] py-2 w-36">
+          <option value="todas">Modalidade</option>
+          <option value="corrida">🏃 Corrida</option>
+          <option value="kids">🎖️ Kids Geral</option>
+          <option value="caminhada">🚶 Caminhada</option>
+        </select>
       </div>
 
       {/* Tabela */}
@@ -174,7 +187,15 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
                     <div className="text-[11px] text-brand-muted">{r.email}</div>
                   </td>
                   <td className="px-3 py-2.5 text-brand-muted">{r.distancia} km</td>
-                  <td className="px-3 py-2.5 text-[12px] text-brand-muted">{r.categoria}</td>
+                  <td className="px-3 py-2.5">
+                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                      r.categoria === 'Kids Geral' ? 'bg-yellow-100 text-yellow-800' :
+                      r.categoria === 'Caminhada'  ? 'bg-green-100 text-green-800' :
+                      'text-brand-muted'
+                    }`}>
+                      {r.categoria}
+                    </span>
+                  </td>
                   <td className="px-3 py-2.5 text-center">
                     <span className="font-display font-bold text-[12px] bg-brand-lilac text-brand-purple-dark px-2 py-0.5 rounded">
                       {r.camiseta}

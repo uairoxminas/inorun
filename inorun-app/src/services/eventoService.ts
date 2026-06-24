@@ -10,6 +10,7 @@ export interface Race {
   label: string;
   descricao: string;
   vagas_total: number;
+  tipo: 'corrida' | 'kids' | 'caminhada'; // v2: distingue modalidades
 }
 
 export interface PricingLot {

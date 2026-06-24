@@ -16,15 +16,24 @@ export default function UploadResultados({ onSucesso }: UploadResultadosProps) {
   // Regra de teste prático: Gerador de dados fictícios para testar a importação de forma fácil
   const gerarDadosTeste = () => {
     const mockAtletas = [
-      { colocacao_geral: 1, bib_number: 101, nome: "Carlos Eduardo Santos", sexo: "M", distancia_km: 5, categoria: "M 25-29", colocacao_categoria: 1, colocacao_sexo: 1, tempo_bruto: "00:16:45", tempo_liquido: "00:16:44", pace: "03:20" },
-      { colocacao_geral: 2, bib_number: 120, nome: "Juliana Maria de Souza", sexo: "F", distancia_km: 5, categoria: "F 30-34", colocacao_categoria: 1, colocacao_sexo: 1, tempo_bruto: "00:18:12", tempo_liquido: "00:18:10", pace: "03:38" },
-      { colocacao_geral: 3, bib_number: 105, nome: "Marcos Paulo Costa", sexo: "M", distancia_km: 5, categoria: "M 35-39", colocacao_categoria: 1, colocacao_sexo: 2, tempo_bruto: "00:19:30", tempo_liquido: "00:19:25", pace: "03:53" },
-      { colocacao_geral: 1, bib_number: 502, nome: "Rodrigo Alencar Lima", sexo: "M", distancia_km: 10, categoria: "M 30-34", colocacao_categoria: 1, colocacao_sexo: 1, tempo_bruto: "00:34:55", tempo_liquido: "00:34:52", pace: "03:29" },
-      { colocacao_geral: 2, bib_number: 540, nome: "Fernanda Cristina Ramos", sexo: "F", distancia_km: 10, categoria: "F 40-44", colocacao_categoria: 1, colocacao_sexo: 1, tempo_bruto: "00:38:20", tempo_liquido: "00:38:18", pace: "03:49" }
+      // ── Corrida 5 km (novas faixas v2) ──
+      { tipo: 'corrida', colocacao_geral: 1, bib_number: 101, nome: 'Carlos Eduardo Santos',   sexo: 'M', distancia_km: 5, categoria: 'M 20-29', colocacao_categoria: 1, colocacao_sexo: 1, tempo_bruto: '00:16:45', tempo_liquido: '00:16:44', pace: '03:20' },
+      { tipo: 'corrida', colocacao_geral: 2, bib_number: 120, nome: 'Juliana Maria de Souza',   sexo: 'F', distancia_km: 5, categoria: 'F 30-39', colocacao_categoria: 1, colocacao_sexo: 1, tempo_bruto: '00:18:12', tempo_liquido: '00:18:10', pace: '03:38' },
+      { tipo: 'corrida', colocacao_geral: 3, bib_number: 105, nome: 'Marcos Paulo Costa',       sexo: 'M', distancia_km: 5, categoria: 'M 40-49', colocacao_categoria: 1, colocacao_sexo: 2, tempo_bruto: '00:19:30', tempo_liquido: '00:19:25', pace: '03:53' },
+      { tipo: 'corrida', colocacao_geral: 4, bib_number: 118, nome: 'Ana Paula Ferreira',       sexo: 'F', distancia_km: 5, categoria: 'F Sub-20', colocacao_categoria: 1, colocacao_sexo: 2, tempo_bruto: '00:22:15', tempo_liquido: '00:22:10', pace: '04:26' },
+      { tipo: 'corrida', colocacao_geral: 5, bib_number: 132, nome: 'José Roberto Alves',       sexo: 'M', distancia_km: 5, categoria: 'M 50+',   colocacao_categoria: 1, colocacao_sexo: 3, tempo_bruto: '00:25:10', tempo_liquido: '00:25:05', pace: '05:01' },
+      // ── Corrida 10 km ──
+      { tipo: 'corrida', colocacao_geral: 1, bib_number: 502, nome: 'Rodrigo Alencar Lima',     sexo: 'M', distancia_km: 10, categoria: 'M 30-39', colocacao_categoria: 1, colocacao_sexo: 1, tempo_bruto: '00:34:55', tempo_liquido: '00:34:52', pace: '03:29' },
+      { tipo: 'corrida', colocacao_geral: 2, bib_number: 540, nome: 'Fernanda Cristina Ramos',  sexo: 'F', distancia_km: 10, categoria: 'F 40-49', colocacao_categoria: 1, colocacao_sexo: 1, tempo_bruto: '00:38:20', tempo_liquido: '00:38:18', pace: '03:49' },
+      // ── Kids Geral ──
+      { tipo: 'kids',    colocacao_geral: 1, bib_number: 201, nome: 'Miguell Souza Junior',     sexo: 'M', distancia_km: 5, categoria: 'Kids Geral', colocacao_categoria: 1, colocacao_sexo: 1, tempo_bruto: '00:32:10', tempo_liquido: '00:32:10', pace: '06:26' },
+      { tipo: 'kids',    colocacao_geral: 2, bib_number: 205, nome: 'Sophia Lima Castro',        sexo: 'F', distancia_km: 5, categoria: 'Kids Geral', colocacao_categoria: 2, colocacao_sexo: 1, tempo_bruto: '00:34:50', tempo_liquido: '00:34:50', pace: '06:58' },
+      // ── Caminhada ──
+      { tipo: 'caminhada', colocacao_geral: 1, bib_number: 301, nome: 'Maria das Graças Oliveira', sexo: 'F', distancia_km: 5, categoria: 'Caminhada', colocacao_categoria: 1, colocacao_sexo: 1, tempo_bruto: '01:05:00', tempo_liquido: '01:05:00', pace: '13:00' },
     ];
     setDadosPreview(mockAtletas);
     setNomeArquivo('dados_teste_ficticios.csv (Gerado Automaticamente)');
-    setMensagem({ tipo: 'sucesso', texto: 'Dados de teste gerados com sucesso! Clique em "Salvar Resultados no Banco" abaixo para testar.' });
+    setMensagem({ tipo: 'sucesso', texto: 'Dados de teste gerados (categorias v2: Sub-20, 20-29, 30-39, 40-49, 50+, Kids Geral, Caminhada). Clique em "Salvar Resultados no Banco" para testar.' });
   };
 
   // Processa o arquivo CSV carregado
@@ -137,17 +146,21 @@ export default function UploadResultados({ onSucesso }: UploadResultadosProps) {
     setMensagem(null);
 
     const payload = dadosPreview.map(d => ({
-      bib_number: d.bib_number,
-      nome: d.nome,
-      sexo: d.sexo || 'M',
-      distancia_km: d.distancia_km || 5,
-      categoria: d.categoria || 'Geral',
-      tempo_bruto: d.tempo_bruto || d.tempo_liquido,
-      tempo_liquido: d.tempo_liquido,
-      pace: d.pace || '',
-      colocacao_geral: d.colocacao_geral || 0,
-      colocacao_sexo: d.colocacao_sexo || 0,
-      colocacao_categoria: d.colocacao_categoria || 0
+      bib_number:          d.bib_number,
+      nome:                d.nome,
+      // Kids e Caminhada podem ter sexo null (não é campo competitivo)
+      sexo:                d.sexo || null,
+      distancia_km:        d.distancia_km || 5,
+      categoria:           d.categoria || 'Geral',
+      // tipo v2: corrida | kids | caminhada
+      tipo:                d.tipo || 'corrida',
+      tempo_bruto:         d.tempo_bruto || d.tempo_liquido,
+      tempo_liquido:       d.tempo_liquido,
+      pace:                d.pace || '',
+      // Kids e Caminhada não têm colocação geral competitiva
+      colocacao_geral:     d.tipo === 'kids' || d.tipo === 'caminhada' ? null : (d.colocacao_geral || 0),
+      colocacao_sexo:      d.tipo === 'kids' || d.tipo === 'caminhada' ? null : (d.colocacao_sexo || 0),
+      colocacao_categoria: d.colocacao_categoria || 0,
     }));
 
     const result = await importarResultados(payload);
@@ -202,11 +215,14 @@ export default function UploadResultados({ onSucesso }: UploadResultadosProps) {
             <li>O arquivo de importação deve estar no formato <strong>CSV</strong> (separado por vírgula ou ponto-e-vírgula).</li>
             <li>O cabeçalho do arquivo deve conter as colunas equivalentes aos dados da corrida:
               <code className="bg-brand-bg px-1.5 py-0.5 rounded text-brand-purple text-xs ml-1 font-mono font-bold">
-                bib, nome, sexo, distancia, categoria, tempo_bruto, tempo_liquido, pace, colocacao_geral, colocacao_sexo, colocacao_categoria
+                tipo, bib, nome, sexo, distancia, categoria, tempo_bruto, tempo_liquido, pace, colocacao_geral, colocacao_sexo, colocacao_categoria
               </code>
             </li>
-            <li>Colunas essenciais para importação bem-sucedida: <strong>dorsal/bib</strong>, <strong>nome</strong> e <strong>tempo_liquido</strong>.</li>
-            <li>Para substituir os resultados anteriores por uma planilha nova corrigida, é recomendável usar o botão <strong>"Limpar Banco de Dados"</strong> antes de enviar o novo arquivo.</li>
+            <li>Coluna <strong>tipo</strong>: use <code className="font-mono text-xs">corrida</code>, <code className="font-mono text-xs">kids</code> ou <code className="font-mono text-xs">caminhada</code>.</li>
+            <li><strong>Categorias v2:</strong> Sub-20 (13-19), 20-29, 30-39, 40-49, 50+ · Especiais: <em>Kids Geral</em> e <em>Caminhada</em>.</li>
+            <li>Kids e Caminhada <strong>não entram no ranking geral</strong> de corrida (colocacao_geral fica nula).</li>
+            <li>Colunas essenciais: <strong>tipo</strong>, <strong>dorsal/bib</strong>, <strong>nome</strong> e <strong>tempo_liquido</strong>.</li>
+            <li>Para substituir resultados anteriores por planilha corrigida, use o botão <strong>"Limpar Banco de Dados"</strong> antes de enviar.</li>
           </ul>
         </div>
       </div>

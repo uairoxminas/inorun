@@ -3,11 +3,12 @@
 // Invariantes do gemini.md:
 //   - CPF único por prova (race_id + athlete_id UNIQUE no schema)
 //   - Preço calculado no servidor (lote ativo no momento da inscrição)
-//   - Categoria derivada de sexo + idade na data da prova
+//   - Categoria derivada de sexo + idade na data da prova (+ modalidade v2)
 //   - bib_number gerado APÓS pagamento confirmado (confirmar_pagamento_mock)
 
 import { supabase } from '../lib/supabase';
 import { calcCategoria } from '../lib/calcCategoria';
+import type { Modalidade } from '../lib/calcCategoria';
 import { validaCPF } from '../lib/validaCPF';
 
 export interface DadosAtleta {
@@ -24,6 +25,7 @@ export interface DadosInscricao {
   race_id: string;
   lot_id: string;
   event_id: string;
+  modalidade: Modalidade; // v2: 'corrida' | 'kids' | 'caminhada'
   camiseta: 'PP' | 'P' | 'M' | 'G' | 'GG' | 'XG';
   cupom_id?: string;
   valor_centavos: number;
@@ -65,6 +67,8 @@ async function upsertAtleta(dados: DadosAtleta): Promise<string> {
 }
 
 // ── Passo 2: cria a inscrição ─────────────────────────────────────────────
+// Categoria é derivada no front conforme modalidade, e armazenada como string
+// (category_id = text no schema, ex: "M 30-39", "Kids Geral", "Caminhada")
 async function criarRegistration(
   athlete_id: string,
   dados: DadosAtleta,
@@ -72,7 +76,8 @@ async function criarRegistration(
 ): Promise<string> {
   const categoria = calcCategoria(
     new Date(dados.nascimento),
-    dados.sexo
+    dados.sexo,
+    inscricao.modalidade // v2: passa modalidade
   );
 
   const { data, error } = await supabase
@@ -148,7 +153,8 @@ export async function criarInscricaoCompleta(
 
   const categoria = calcCategoria(
     new Date(atletaDados.nascimento),
-    atletaDados.sexo
+    atletaDados.sexo,
+    inscricaoDados.modalidade // v2
   );
 
   return {
