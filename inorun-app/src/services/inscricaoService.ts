@@ -15,7 +15,7 @@ export interface DadosAtleta {
   nome: string;
   cpf: string;
   nascimento: string; // YYYY-MM-DD
-  sexo: 'M' | 'F';
+  sexo?: 'M' | 'F';  // opcional para Kids e Caminhada
   email: string;
   telefone?: string;
   contato_emergencia?: string;
@@ -26,7 +26,7 @@ export interface DadosInscricao {
   lot_id: string;
   event_id: string;
   modalidade: Modalidade; // v2: 'corrida' | 'kids' | 'caminhada'
-  camiseta: 'PP' | 'P' | 'M' | 'G' | 'GG' | 'XG';
+  camiseta: 'PP' | 'P' | 'M' | 'G' | 'GG' | 'XG' | '8' | '10' | '12'; // + tamanhos Kids
   cupom_id?: string;
   valor_centavos: number;
   metodo_pagamento: 'pix' | 'cartao';
@@ -52,12 +52,12 @@ async function upsertAtleta(dados: DadosAtleta): Promise<string> {
   const cpfLimpo = dados.cpf.replace(/\D/g, '');
 
   const { data, error } = await supabase.rpc('upsert_atleta', {
-    p_nome:      dados.nome.trim(),
-    p_cpf:       cpfLimpo,
+    p_nome:       dados.nome.trim(),
+    p_cpf:        cpfLimpo,
     p_nascimento: dados.nascimento,
-    p_sexo:      dados.sexo,
-    p_email:     dados.email.trim().toLowerCase(),
-    p_telefone:  dados.telefone?.trim() || null,
+    p_sexo:       dados.sexo ?? null,  // null para Kids/Caminhada quando não informado
+    p_email:      dados.email.trim().toLowerCase(),
+    p_telefone:   dados.telefone?.trim() || null,
     p_emergencia: dados.contato_emergencia?.trim() || null,
   });
 
@@ -76,8 +76,8 @@ async function criarRegistration(
 ): Promise<string> {
   const categoria = calcCategoria(
     new Date(dados.nascimento),
-    dados.sexo,
-    inscricao.modalidade // v2: passa modalidade
+    dados.sexo ?? 'M', // sexo ignorado para Kids/Caminhada (modalidade define categoria)
+    inscricao.modalidade
   );
 
   const { data, error } = await supabase
@@ -153,8 +153,8 @@ export async function criarInscricaoCompleta(
 
   const categoria = calcCategoria(
     new Date(atletaDados.nascimento),
-    atletaDados.sexo,
-    inscricaoDados.modalidade // v2
+    atletaDados.sexo ?? 'M', // ignorado para Kids/Caminhada
+    inscricaoDados.modalidade
   );
 
   return {

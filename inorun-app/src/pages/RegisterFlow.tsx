@@ -16,7 +16,8 @@ import type { ResultadoInscricao } from '../services/inscricaoService';
 interface Props { onBack: () => void; onDone: () => void; }
 
 const STEPS    = ['Prova', 'Seus dados', 'Categoria & kit', 'Pagamento', 'Confirmação'];
-const CAMISETAS = ['PP', 'P', 'M', 'G', 'GG', 'XG'] as const;
+const CAMISETAS_ADULTO = ['PP', 'P', 'M', 'G', 'GG', 'XG'] as const;
+const CAMISETAS_KIDS   = ['8', '10', '12', 'PP', 'P'] as const;   // tamanhos Kids
 
 // Ícone e cor por modalidade
 const MODALIDADE_CONFIG: Record<string, { emoji: string; cor: string; badge: string }> = {
@@ -97,9 +98,12 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
   };
 
   // Validação por step
+  // Sexo: obrigatório para corrida (derive categoria), opcional para Kids/Caminhada
+  const sexoObrigatorio = f.modalidade === 'corrida';
   const canAdvance: Record<number, boolean> = {
     1: !!f.race_id && !!loteAtual,
-    2: !!f.nome && !!f.cpf && !!f.nasc && !!f.sexo && !!f.email && !cpfErro && !idadeErro,
+    2: !!f.nome && !!f.cpf && !!f.nasc && !!f.email && !cpfErro && !idadeErro &&
+       (!sexoObrigatorio || !!f.sexo),   // sexo só bloqueia na corrida
     3: !!f.camiseta,
     4: f.termo,
   };
@@ -126,7 +130,8 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
       const res = await criarInscricaoCompleta(
         {
           nome: f.nome, cpf: f.cpf, nascimento: f.nasc,
-          sexo: f.sexo as 'M' | 'F', email: f.email,
+          sexo: f.sexo ? (f.sexo as 'M' | 'F') : undefined, // opcional para Kids/Caminhada
+          email: f.email,
           telefone: f.tel, contato_emergencia: f.emergencia,
         },
         {
@@ -334,7 +339,10 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
               </div>
             </div>
             <div>
-              <label className="label">Sexo {f.modalidade === 'kids' ? '(para o kit)' : '(para categoria)'}</label>
+              <label className="label">
+                Sexo
+                {f.modalidade === 'corrida' ? ' (para categoria)' : ' (para o kit — opcional)'}
+              </label>
               <div className="flex gap-3">
                 {(['M', 'F'] as const).map(sx => (
                   <button key={sx} id={`select-sexo-${sx}`}
@@ -345,6 +353,9 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
                   </button>
                 ))}
               </div>
+              {!sexoObrigatorio && !f.sexo && (
+                <p className="text-[12px] text-brand-muted mt-1">Pode pular se preferir</p>
+              )}
             </div>
             <div>
               <label className="label">E-mail</label>
@@ -400,8 +411,11 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
 
             <div>
               <label className="label">Tamanho da camiseta</label>
+              {f.modalidade === 'kids' && (
+                <p className="text-[12px] text-brand-muted mb-2">Tamanhos infantis (8, 10, 12) + adulto pequeno (PP, P)</p>
+              )}
               <div className="flex flex-wrap gap-2">
-                {CAMISETAS.map(c => (
+                {(f.modalidade === 'kids' ? CAMISETAS_KIDS : CAMISETAS_ADULTO).map(c => (
                   <button key={c} id={`select-camiseta-${c}`}
                     onClick={() => set('camiseta', c)}
                     className={`w-14 py-3 rounded-xl font-display font-bold text-[16px] border-2 transition-all duration-150
