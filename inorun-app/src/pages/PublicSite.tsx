@@ -24,10 +24,12 @@ interface Props {
 
 const FAQ_ITEMS = [
   { q: 'Como funciona a retirada do kit?',    a: 'A retirada acontece nos dias que antecedem a prova, mediante documento com foto e comprovante de inscrição.' },
-  { q: 'Como são definidas as categorias?',   a: 'Individual masculino e feminino, com premiação por faixa etária — Sub-20, 20-24, 25-29, 30-34, 35-39, 40-44, 45-49 e 50+. A categoria é calculada pela idade na data da prova (11/10/2026).' },
+  { q: 'Como são definidas as categorias?',   a: 'Corrida 5 km e 10 km: masculino e feminino com premiação por faixa etária — Sub-20 (13-19), 20-29, 30-39, 40-49 e 50+. Kids Geral (7-12 anos): todos ganham medalha. Caminhada: participação livre sem cronometragem. A categoria é calculada pela idade na data da prova (11/10/2026).' },
   { q: 'Posso me inscrever em grupo?',         a: 'Sim! O sistema permite inscrição de múltiplos atletas em uma única sessão.' },
   { q: 'O pagamento via Pix confirma na hora?', a: 'Sim. A confirmação por Pix é automática e o número de peito é gerado em seguida.' },
   { q: 'Posso transferir minha inscrição?',   a: 'Sim, transferências são permitidas até 15 dias antes do evento pelo painel do atleta.' },
+  { q: 'Como funciona a prova Kids?',          a: 'A prova Kids é para crianças de 7 a 12 anos. Todos os participantes ganham medalha e sobem ao pódio — não há classificação competitiva, só celebração!' },
+  { q: 'A caminhada tem cronometragem?',       a: 'Não. A Caminhada 5 km é uma modalidade inclusiva sem cronometragem competitiva. Todos os participantes recebem certificado de conclusão.' },
 ];
 
 const KIT_ITEMS = [
@@ -103,10 +105,21 @@ export default function PublicSite({ onRegister, onAdmin, totalInscritos, onEven
 
   const inscritos = evento?.totalInscritos ?? totalInscritos;
 
-  const race5k  = evento?.races.find(r => r.distancia_km === 5);
-  const race10k = evento?.races.find(r => r.distancia_km === 10);
-  const lote5k  = race5k  ? getLoteAtivo(evento!.lots, race5k.id)  : null;
-  const lote10k = race10k ? getLoteAtivo(evento!.lots, race10k.id) : null;
+  // Provas por tipo (v2: corrida 5k, corrida 10k, kids, caminhada)
+  const race5k      = evento?.races.find(r => r.tipo === 'corrida' && r.distancia_km === 5);
+  const race10k     = evento?.races.find(r => r.tipo === 'corrida' && r.distancia_km === 10);
+  const raceKids    = evento?.races.find(r => r.tipo === 'kids');
+  const raceCaminhada = evento?.races.find(r => r.tipo === 'caminhada');
+  const lote5k      = race5k      ? getLoteAtivo(evento!.lots, race5k.id)      : null;
+  const lote10k     = race10k     ? getLoteAtivo(evento!.lots, race10k.id)     : null;
+  const loteKids    = raceKids    ? getLoteAtivo(evento!.lots, raceKids.id)    : null;
+  const loteCaminhada = raceCaminhada ? getLoteAtivo(evento!.lots, raceCaminhada.id) : null;
+
+  // Filtro de categorias dinâmico — derivado dos resultados carregados do banco
+  const categoriasDisponiveis = [
+    'Todos',
+    ...Array.from(new Set(resultadosLeaderboard.map(r => r.categoria))).sort(),
+  ];
 
   return (
     <div className="bg-brand-bg text-brand-ink font-sans">
@@ -201,39 +214,113 @@ export default function PublicSite({ onRegister, onAdmin, totalInscritos, onEven
 
         {loadingEvento ? (
           <div className="mt-8 grid gap-5 md:grid-cols-2">
-            {[0,1].map(i => (
+            {[0,1,2,3].map(i => (
               <div key={i} className="card overflow-hidden animate-pulse">
-                <div className="bg-brand-lilac h-[100px]" />
-                <div className="p-6 space-y-3">
+                <div className="bg-brand-lilac h-[80px]" />
+                <div className="p-5 space-y-2">
                   <div className="h-4 bg-brand-lilac-mid rounded w-3/4" />
-                  <div className="h-4 bg-brand-lilac-mid rounded w-1/2" />
+                  <div className="h-3 bg-brand-lilac-mid rounded w-1/2" />
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="mt-8 grid gap-5 md:grid-cols-2">
-            {race5k && (
-              <ProvaCard id="5km" km="5" label={race5k.label} tag="Iniciante"
-                desc={race5k.descricao}
-                preco={lote5k?.preco_centavos ?? 7900}
-                onInscrever={onRegister} />
-            )}
-            {race10k && (
-              <ProvaCard id="10km" km="10" label={race10k.label} tag="Performance"
-                desc={race10k.descricao}
-                preco={lote10k?.preco_centavos ?? 9900}
-                onInscrever={onRegister} />
+          <div className="mt-8 space-y-4">
+            {/* Corridas — grid 2 colunas */}
+            <div className="grid gap-5 md:grid-cols-2">
+              {race5k && (
+                <ProvaCard id="5km" km="5" label={race5k.label} tag="Iniciante"
+                  desc={race5k.descricao}
+                  preco={lote5k?.preco_centavos ?? 8900}
+                  onInscrever={onRegister} />
+              )}
+              {race10k && (
+                <ProvaCard id="10km" km="10" label={race10k.label} tag="Performance"
+                  desc={race10k.descricao}
+                  preco={lote10k?.preco_centavos ?? 8900}
+                  onInscrever={onRegister} />
+              )}
+            </div>
+
+            {/* Kids e Caminhada — grid 2 colunas */}
+            {(raceKids || raceCaminhada) && (
+              <div className="grid gap-5 md:grid-cols-2">
+                {/* Card Kids */}
+                {raceKids && (
+                  <button id="card-prova-kids" onClick={onRegister}
+                    className="text-left p-5 rounded-2xl border-2 border-yellow-400 bg-yellow-50 hover:shadow-md transition-all duration-150 group">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <span className="text-[11px] font-bold tracking-widest uppercase text-yellow-700">🎖️ Kids · 7-12 anos</span>
+                        <div className="font-display font-extrabold italic text-[26px] uppercase text-yellow-800 leading-none mt-0.5">
+                          {raceKids.label}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[10px] text-yellow-700">a partir de</div>
+                        <div className="font-display font-extrabold text-[22px] text-yellow-700">
+                          {formataBRL(loteKids?.preco_centavos ?? 8900)}
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-[13px] text-yellow-800 leading-relaxed">
+                      {raceKids.descricao || 'Corrida especial para crianças de 7 a 12 anos. Todos sobem ao pódio!'}
+                    </p>
+                    <div className="mt-3 inline-block bg-yellow-400 text-yellow-900 text-[11px] font-bold px-3 py-1 rounded-full">
+                      🏅 Todos ganham medalha!
+                    </div>
+                  </button>
+                )}
+
+                {/* Card Caminhada */}
+                {raceCaminhada && (
+                  <button id="card-prova-caminhada" onClick={onRegister}
+                    className="text-left p-5 rounded-2xl border-2 border-green-400 bg-green-50 hover:shadow-md transition-all duration-150 group">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <span className="text-[11px] font-bold tracking-widest uppercase text-green-700">🚶 Caminhada · Idade livre</span>
+                        <div className="font-display font-extrabold italic text-[26px] uppercase text-green-800 leading-none mt-0.5">
+                          {raceCaminhada.label}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[10px] text-green-700">a partir de</div>
+                        <div className="font-display font-extrabold text-[22px] text-green-700">
+                          {formataBRL(loteCaminhada?.preco_centavos ?? 8900)}
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-[13px] text-green-800 leading-relaxed">
+                      {raceCaminhada.descricao || 'Participação inclusiva sem cronometragem competitiva. Certificado de conclusão para todos!'}
+                    </p>
+                    <div className="mt-3 inline-block bg-green-500 text-white text-[11px] font-bold px-3 py-1 rounded-full">
+                      📜 Certificado de conclusão
+                    </div>
+                  </button>
+                )}
+              </div>
             )}
           </div>
         )}
 
+        {/* Badge de categorias — v2 com Kids e Caminhada */}
         <div className="mt-5 bg-brand-lilac rounded-2xl px-6 py-5">
-          <div className="flex flex-wrap items-center gap-x-8 gap-y-2">
-            <span className="font-display font-extrabold italic uppercase text-[22px] text-brand-purple-dark">Categorias</span>
-            <span className="text-[15px] text-brand-ink">
-              <strong>Individual</strong> M/F · Sub-20 · 20-24 · 25-29 · 30-34 · 35-39 · 40-44 · 45-49 · 50+
-            </span>
+          <div className="flex flex-wrap items-start gap-x-8 gap-y-3">
+            <span className="font-display font-extrabold italic uppercase text-[22px] text-brand-purple-dark shrink-0">Categorias</span>
+            <div className="flex flex-wrap gap-x-6 gap-y-2 text-[14px] text-brand-ink">
+              <div>
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-brand-muted block mb-1">🏃 Corrida 5 km e 10 km</span>
+                <strong>Masc. e Fem.</strong> · Sub-20 · 20-29 · 30-39 · 40-49 · 50+
+              </div>
+              <div>
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-brand-muted block mb-1">🎖️ Kids (7-12 anos)</span>
+                <strong className="text-yellow-700">Kids Geral</strong> · Todos ganham medalha!
+              </div>
+              <div>
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-brand-muted block mb-1">🚶 Caminhada</span>
+                <strong className="text-green-700">Participação livre</strong> · Sem cronometragem
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -475,46 +562,64 @@ export default function PublicSite({ onRegister, onAdmin, totalInscritos, onEven
                 <p>
                   <strong>Artigo 5º.</strong> Os valores e prazos de lotes oficiais de inscrição seguem o cronograma abaixo:
                 </p>
-                <div className="overflow-x-auto rounded-xl border border-brand-lilac-mid">
-                  <table className="w-full text-left border-collapse text-[13px]">
+                  <table className="w-full text-sm text-left border-collapse">
                     <thead>
-                      <tr className="bg-brand-lilac text-brand-purple font-display font-bold uppercase border-b border-brand-lilac-mid">
-                        <th className="p-2.5">Modalidade</th>
-                        <th className="p-2.5">Lote 1 (até 31/07)</th>
-                        <th className="p-2.5">Lote 2 (até 30/09)</th>
-                        <th className="p-2.5">Lote 3 (até 10/10)</th>
+                      <tr className="border-b border-brand-lilac-mid">
+                        <th className="p-2.5 text-brand-purple-dark">Modalidade</th>
+                        <th className="p-2.5 text-brand-purple-dark">Lote 1</th>
+                        <th className="p-2.5 text-brand-purple-dark">Lote 2</th>
+                        <th className="p-2.5 text-brand-purple-dark">Lote 3</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-brand-lilac-mid bg-white">
+                    <tbody className="divide-y divide-brand-lilac-mid">
                       <tr>
-                        <td className="p-2.5 font-semibold">5 km</td>
-                        <td className="p-2.5">R$ 79,00</td>
+                        <td className="p-2.5 font-semibold">Corrida 5 km</td>
                         <td className="p-2.5">R$ 89,00</td>
                         <td className="p-2.5">R$ 99,00</td>
+                        <td className="p-2.5">R$ 109,00</td>
                       </tr>
                       <tr>
-                        <td className="p-2.5 font-semibold">10 km</td>
+                        <td className="p-2.5 font-semibold">Corrida 10 km</td>
+                        <td className="p-2.5">R$ 89,00</td>
                         <td className="p-2.5">R$ 99,00</td>
                         <td className="p-2.5">R$ 109,00</td>
-                        <td className="p-2.5">R$ 119,00</td>
+                      </tr>
+                      <tr>
+                        <td className="p-2.5 font-semibold">Kids Geral (7-12)</td>
+                        <td className="p-2.5">R$ 89,00</td>
+                        <td className="p-2.5">R$ 99,00</td>
+                        <td className="p-2.5">R$ 109,00</td>
+                      </tr>
+                      <tr>
+                        <td className="p-2.5 font-semibold">Caminhada 5 km</td>
+                        <td className="p-2.5">R$ 89,00</td>
+                        <td className="p-2.5">R$ 99,00</td>
+                        <td className="p-2.5">R$ 109,00</td>
                       </tr>
                     </tbody>
                   </table>
-                </div>
+                  <p className="text-[12px] text-brand-muted mt-2">* Todos os valores acrescidos de R$ 5,00 de taxa de plataforma por inscrição.</p>
                 <p>
                   <strong>Artigo 6º.</strong> O CPF do participante é obrigatório, servindo como identificador único. Não serão permitidas inscrições duplicadas do mesmo CPF no mesmo evento.
                 </p>
               </section>
+
 
               <section className="space-y-3">
                 <h2 className="font-display font-bold text-lg text-brand-purple-dark">CAPÍTULO IV – CATEGORIAS E CRONOMETRAGEM</h2>
                 <p>
                   <strong>Artigo 7º.</strong> As categorias de premiação por faixa etária (masculina e feminina) nas distâncias de 5 km e 10 km são baseadas na idade do atleta na data da prova (11/10/2026):
                   <br />
-                  <span className="font-semibold block mt-1 text-brand-purple">Sub-20 · 20-24 · 25-29 · 30-34 · 35-39 · 40-44 · 45-49 · 50+</span>
+                  <span className="font-semibold block mt-1 text-brand-purple">Sub-20 (13-19 anos) · 20-29 · 30-39 · 40-49 · 50+</span>
                 </p>
                 <p>
-                  <strong>Artigo 8º.</strong> O sistema de cronometragem eletrônica será feito por chip descartável fixado ao número de peito. É de responsabilidade do atleta o posicionamento correto do equipamento. A alteração ou ausência do chip desclassificará o competidor.
+                  <strong>Artigo 7º-A.</strong> A modalidade <strong>Kids Geral</strong> (7 a 12 anos) é não-competitiva: todos os participantes que completarem o percurso recebem medalha de participação e sobem ao pódio. Não há classificação por posição nesta categoria.
+                </p>
+                <p>
+                  <strong>Artigo 7º-B.</strong> A modalidade <strong>Caminhada 5 km</strong> (idade livre) é não-cronometrada. Todos os participantes recebem certificado de conclusão. Esta modalidade não integra o ranking geral de corrida.
+                </p>
+                <p>
+                  <strong>Artigo 8º.</strong> O sistema de cronometragem eletrônica será feito por chip descartável fixado ao número de peito. É de responsabilidade do atleta o posicionamento correto do equipamento. A alteração ou ausência do chip desclassificará o competidor nas modalidades cronometradas.
                 </p>
               </section>
 
@@ -737,23 +842,29 @@ export default function PublicSite({ onRegister, onAdmin, totalInscritos, onEven
                     onChange={(e) => setCategoriaFiltro(e.target.value)}
                     className="border border-brand-lilac-mid rounded-lg px-3 py-2 text-xs bg-brand-bg text-brand-ink focus:outline-none focus:border-brand-purple"
                   >
-                    <option value="Todos">Todas as Categorias</option>
-                    <option value="M Sub-20">Masculino Sub-20</option>
-                    <option value="F Sub-20">Feminino Sub-20</option>
-                    <option value="M 20-24">Masculino 20-24</option>
-                    <option value="F 20-24">Feminino 20-24</option>
-                    <option value="M 25-29">Masculino 25-29</option>
-                    <option value="F 25-29">Feminino 25-29</option>
-                    <option value="M 30-34">Masculino 30-34</option>
-                    <option value="F 30-34">Feminino 30-34</option>
-                    <option value="M 35-39">Masculino 35-39</option>
-                    <option value="F 35-39">Feminino 35-39</option>
-                    <option value="M 40-44">Masculino 40-44</option>
-                    <option value="F 40-44">Feminino 40-44</option>
-                    <option value="M 45-49">Masculino 45-49</option>
-                    <option value="F 45-49">Feminino 45-49</option>
-                    <option value="M 50+">Masculino 50+</option>
-                    <option value="F 50+">Feminino 50+</option>
+                    {/* Dinâmico: categorias derivadas dos resultados carregados do banco */}
+                    {categoriasDisponiveis.map(cat => (
+                      <option key={cat} value={cat}>
+                        {cat === 'Todos' ? 'Todas as Categorias' : cat}
+                      </option>
+                    ))}
+                    {/* Fallback estático quando não há resultados ainda */}
+                    {categoriasDisponiveis.length <= 1 && (
+                      <>
+                        <option value="M Sub-20">Masculino Sub-20</option>
+                        <option value="F Sub-20">Feminino Sub-20</option>
+                        <option value="M 20-29">Masculino 20-29</option>
+                        <option value="F 20-29">Feminino 20-29</option>
+                        <option value="M 30-39">Masculino 30-39</option>
+                        <option value="F 30-39">Feminino 30-39</option>
+                        <option value="M 40-49">Masculino 40-49</option>
+                        <option value="F 40-49">Feminino 40-49</option>
+                        <option value="M 50+">Masculino 50+</option>
+                        <option value="F 50+">Feminino 50+</option>
+                        <option value="Kids Geral">Kids Geral</option>
+                        <option value="Caminhada">Caminhada</option>
+                      </>
+                    )}
                   </select>
                 </div>
               </div>
