@@ -106,8 +106,14 @@ export default function PublicSite({ onRegister, onAdmin, totalInscritos, onEven
   const inscritos = evento?.totalInscritos ?? totalInscritos;
 
   // Provas por tipo (v2: corrida 5k, corrida 10k, kids, caminhada)
-  const race5k      = evento?.races.find(r => r.tipo === 'corrida' && r.distancia_km === 5);
-  const race10k     = evento?.races.find(r => r.tipo === 'corrida' && r.distancia_km === 10);
+  // Resiliência: se tipo = null (migration 013 ainda não rodada no banco),
+  // provas com distancia_km definida são tratadas como corrida
+  const race5k      = evento?.races.find(r =>
+    (r.tipo === 'corrida' || !r.tipo) && r.distancia_km === 5
+  );
+  const race10k     = evento?.races.find(r =>
+    (r.tipo === 'corrida' || !r.tipo) && r.distancia_km === 10
+  );
   const raceKids    = evento?.races.find(r => r.tipo === 'kids');
   const raceCaminhada = evento?.races.find(r => r.tipo === 'caminhada');
   const lote5k      = race5k      ? getLoteAtivo(evento!.lots, race5k.id)      : null;

@@ -89,13 +89,15 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
   const handleRaceSelect = (raceId: string) => {
     const r = evento?.races.find(x => x.id === raceId);
     if (!r) return;
+    // Resiliência: se tipo não estiver preenchido no banco, é uma corrida
+    const tipoEfetivo: Modalidade = (r.tipo as Modalidade) || 'corrida';
     set('race_id', raceId);
     set('dist', r.distancia_km === 5 ? '5km' : '10km');
-    set('modalidade', r.tipo as Modalidade);
+    set('modalidade', tipoEfetivo);
     setIdadeErro('');
     // Re-valida se já tem nascimento
-    if (f.nasc && r.tipo) {
-      const val = validaIdadeModalidade(new Date(f.nasc), r.tipo as Modalidade);
+    if (f.nasc) {
+      const val = validaIdadeModalidade(new Date(f.nasc), tipoEfetivo);
       if (!val.valido) setIdadeErro(val.motivo ?? '');
     }
   };
@@ -166,9 +168,12 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
   );
 
   // Agrupa races por tipo para exibição no Step 1
-  const racesCorreida   = evento?.races.filter(r => r.tipo === 'corrida') ?? [];
-  const raceKids        = evento?.races.find(r => r.tipo === 'kids');
-  const raceCaminhada   = evento?.races.find(r => r.tipo === 'caminhada');
+  // Resiliência: se tipo = null (migration 013 ainda não rodada), trata corridas pelo distancia_km
+  const racesCorreida = evento?.races.filter(r =>
+    r.tipo === 'corrida' || ((!r.tipo || r.tipo === null) && r.distancia_km > 0)
+  ) ?? [];
+  const raceKids      = evento?.races.find(r => r.tipo === 'kids');
+  const raceCaminhada = evento?.races.find(r => r.tipo === 'caminhada');
 
   const modConf = f.modalidade ? MODALIDADE_CONFIG[f.modalidade] : null;
 
