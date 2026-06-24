@@ -248,66 +248,61 @@ export default function PublicSite({ onRegister, onAdmin, totalInscritos, onEven
               )}
             </div>
 
-            {/* Kids e Caminhada — grid 2 colunas */}
-            {(raceKids || raceCaminhada) && (
-              <div className="grid gap-5 md:grid-cols-2">
-                {/* Card Kids */}
-                {raceKids && (
-                  <button id="card-prova-kids" onClick={onRegister}
-                    className="text-left p-5 rounded-2xl border-2 border-yellow-400 bg-yellow-50 hover:shadow-md transition-all duration-150 group">
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <span className="text-[11px] font-bold tracking-widest uppercase text-yellow-700">🎖️ Kids · 7-12 anos</span>
-                        <div className="font-display font-extrabold italic text-[26px] uppercase text-yellow-800 leading-none mt-0.5">
-                          {raceKids.label}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-[10px] text-yellow-700">a partir de</div>
-                        <div className="font-display font-extrabold text-[22px] text-yellow-700">
-                          {formataBRL(loteKids?.preco_centavos ?? 8900)}
-                        </div>
-                      </div>
+            {/* Kids e Caminhada — sempre visíveis (fallback estático se não estiver no banco ainda) */}
+            <div className="grid gap-5 md:grid-cols-2">
+              {/* Card Kids */}
+              <button id="card-prova-kids" onClick={onRegister}
+                className="text-left p-5 rounded-2xl border-2 border-yellow-400 bg-yellow-50 hover:shadow-md transition-all duration-150 group">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <span className="text-[11px] font-bold tracking-widest uppercase text-yellow-700">🎖️ Kids · 7-12 anos</span>
+                    <div className="font-display font-extrabold italic text-[26px] uppercase text-yellow-800 leading-none mt-0.5">
+                      {raceKids?.label ?? 'Kids Geral'}
                     </div>
-                    <p className="text-[13px] text-yellow-800 leading-relaxed">
-                      {raceKids.descricao || 'Corrida especial para crianças de 7 a 12 anos. Todos sobem ao pódio!'}
-                    </p>
-                    <div className="mt-3 inline-block bg-yellow-400 text-yellow-900 text-[11px] font-bold px-3 py-1 rounded-full">
-                      🏅 Todos ganham medalha!
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[10px] text-yellow-700">a partir de</div>
+                    <div className="font-display font-extrabold text-[22px] text-yellow-700">
+                      {formataBRL(loteKids?.preco_centavos ?? 8900)}
                     </div>
-                  </button>
-                )}
+                  </div>
+                </div>
+                <p className="text-[13px] text-yellow-800 leading-relaxed">
+                  {raceKids?.descricao || 'Corrida especial para crianças de 7 a 12 anos. Todos sobem ao pódio — não há classificação, só celebração!'}
+                </p>
+                <div className="mt-3 inline-block bg-yellow-400 text-yellow-900 text-[11px] font-bold px-3 py-1 rounded-full">
+                  🏅 Todos ganham medalha!
+                </div>
+              </button>
 
-                {/* Card Caminhada */}
-                {raceCaminhada && (
-                  <button id="card-prova-caminhada" onClick={onRegister}
-                    className="text-left p-5 rounded-2xl border-2 border-green-400 bg-green-50 hover:shadow-md transition-all duration-150 group">
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <span className="text-[11px] font-bold tracking-widest uppercase text-green-700">🚶 Caminhada · Idade livre</span>
-                        <div className="font-display font-extrabold italic text-[26px] uppercase text-green-800 leading-none mt-0.5">
-                          {raceCaminhada.label}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-[10px] text-green-700">a partir de</div>
-                        <div className="font-display font-extrabold text-[22px] text-green-700">
-                          {formataBRL(loteCaminhada?.preco_centavos ?? 8900)}
-                        </div>
-                      </div>
+              {/* Card Caminhada */}
+              <button id="card-prova-caminhada" onClick={onRegister}
+                className="text-left p-5 rounded-2xl border-2 border-green-400 bg-green-50 hover:shadow-md transition-all duration-150 group">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <span className="text-[11px] font-bold tracking-widest uppercase text-green-700">🚶 Caminhada · Idade livre</span>
+                    <div className="font-display font-extrabold italic text-[26px] uppercase text-green-800 leading-none mt-0.5">
+                      {raceCaminhada?.label ?? 'Caminhada 5 KM'}
                     </div>
-                    <p className="text-[13px] text-green-800 leading-relaxed">
-                      {raceCaminhada.descricao || 'Participação inclusiva sem cronometragem competitiva. Certificado de conclusão para todos!'}
-                    </p>
-                    <div className="mt-3 inline-block bg-green-500 text-white text-[11px] font-bold px-3 py-1 rounded-full">
-                      📜 Certificado de conclusão
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[10px] text-green-700">a partir de</div>
+                    <div className="font-display font-extrabold text-[22px] text-green-700">
+                      {formataBRL(loteCaminhada?.preco_centavos ?? 8900)}
                     </div>
-                  </button>
-                )}
-              </div>
-            )}
+                  </div>
+                </div>
+                <p className="text-[13px] text-green-800 leading-relaxed">
+                  {raceCaminhada?.descricao || 'Participação inclusiva sem cronometragem competitiva. Aberta para qualquer idade. Certificado de conclusão para todos!'}
+                </p>
+                <div className="mt-3 inline-block bg-green-500 text-white text-[11px] font-bold px-3 py-1 rounded-full">
+                  📜 Certificado de conclusão
+                </div>
+              </button>
+            </div>
           </div>
         )}
+
 
         {/* Badge de categorias — v2 com Kids e Caminhada */}
         <div className="mt-5 bg-brand-lilac rounded-2xl px-6 py-5">
