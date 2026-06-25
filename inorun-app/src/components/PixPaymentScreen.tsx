@@ -46,16 +46,15 @@ export default function PixPaymentScreen({
 
   const handleArquivo = (file: File) => {
     if (file.size > 5 * 1024 * 1024) { setErro("Arquivo muito grande. Maximo 5 MB."); return; }
-    if (!["image/jpeg","image/png","image/webp","application/pdf"].includes(file.type)) {
-      setErro("Formato invalido. Use JPG, PNG, WEBP ou PDF."); return;
+    if (!["image/jpeg","image/png","image/webp"].includes(file.type)) {
+      setErro("Formato invalido. Use apenas JPG, PNG ou WEBP (foto ou print do comprovante). PDFs nao sao aceitos."); return;
     }
     setErro(""); setRejeitado(""); setArquivo(file);
-    if (file.type !== "application/pdf") {
-      const reader = new FileReader();
-      reader.onload = e => setPreview(e.target?.result as string);
-      reader.readAsDataURL(file);
-    } else { setPreview("pdf"); }
+    const reader = new FileReader();
+    reader.onload = e => setPreview(e.target?.result as string);
+    reader.readAsDataURL(file);
   };
+
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -137,8 +136,9 @@ export default function PixPaymentScreen({
             "Abra o app do seu banco e acesse a area Pix",
             `Cole a chave acima (CNPJ: ${PIX_KEY_DISPLAY}) no campo Chave Pix`,
             `Confirme: beneficiaria ${PIX_NOME} e valor ${fmt(valor_total)}`,
-            "Finalize o pagamento e salve o comprovante (print ou PDF)",
-            "Faca o upload do comprovante abaixo para confirmar sua inscricao",
+            "Finalize o pagamento e salve o comprovante",
+            "Tire um print (screenshot) da tela de confirmacao do Pix no seu banco",
+            "Envie a imagem do print abaixo para confirmar sua inscricao",
           ].map((txt, i) => (
             <li key={i} className="flex items-start gap-3">
               <span className="w-6 h-6 rounded-full bg-brand-purple text-white text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
@@ -160,13 +160,12 @@ export default function PixPaymentScreen({
         >
           {preview && preview !== "pdf" ? (
             <img src={preview} alt="Comprovante" className="max-h-52 mx-auto rounded-xl object-contain" />
-          ) : preview === "pdf" ? (
-            <div className="text-5xl mb-2">📄</div>
           ) : (
             <div className="text-brand-muted group-hover:text-brand-purple transition-colors">
               <div className="text-4xl mb-2">📸</div>
               <div className="text-[14px] font-semibold">Arraste ou clique para selecionar</div>
-              <div className="text-[12px] mt-1">JPG, PNG, WEBP ou PDF — max. 5 MB</div>
+              <div className="text-[12px] mt-1 text-brand-muted">Foto ou print do comprovante — JPG, PNG ou WEBP</div>
+              <div className="text-[11px] mt-1 text-orange-500 font-medium">⚠️ PDF nao e aceito — tire um screenshot do app do banco</div>
             </div>
           )}
           {arquivo && (
@@ -176,7 +175,7 @@ export default function PixPaymentScreen({
           )}
         </div>
         <input ref={inputRef} type="file" className="hidden"
-          accept="image/jpeg,image/png,image/webp,application/pdf"
+          accept="image/jpeg,image/png,image/webp"
           onChange={e => { const f = e.target.files?.[0]; if (f) handleArquivo(f); }} />
       </div>
 
