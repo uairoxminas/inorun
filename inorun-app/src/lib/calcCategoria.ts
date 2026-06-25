@@ -3,7 +3,7 @@
 // Regra: categoria derivada de sexo + idade na DATA DA PROVA (11/10/2026), nunca na data de inscrição
 //
 // CATEGORIAS v2 — INO RUN 2026:
-//   Kids Geral      → 7 a 12 anos (5 km apenas, todos ganham medalha)
+//   Kids Geral      → 7 a 12 anos (300 metros, todos ganham medalha)
 //   Caminhada       → qualquer idade (5 km apenas, sem cronometragem competitiva)
 //   M/F Sub-20      → 13 a 19 anos
 //   M/F 20-29       → 20 a 29 anos

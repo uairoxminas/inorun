@@ -1,6 +1,6 @@
 // src/pages/RegisterFlow.tsx — Fluxo de inscrição real conectado ao Supabase
 // 5 passos: prova → dados → categoria/kit → pagamento → confirmação
-// v2: suporte a Kids (7-12), Caminhada e corrida com novas faixas etárias
+// v2: suporte a Kids (7-12 anos · 300m), Caminhada (todos ganham medalha) e corrida com novas faixas etárias
 
 import { useState, useMemo, useEffect } from 'react';
 import Logo from '../components/Logo';
@@ -245,14 +245,14 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
               const sel  = f.race_id === raceKids.id;
               return (
                 <div>
-                  <div className="text-[12px] font-semibold text-brand-muted uppercase tracking-widest mb-2">🎖️ Kids (7-12 anos)</div>
+                  <div className="text-[12px] font-semibold text-brand-muted uppercase tracking-widest mb-2">🎖️ Kids · 7-12 anos · 300m</div>
                   <button id="select-prova-kids"
                     onClick={() => handleRaceSelect(raceKids.id)}
                     className={`w-full flex items-center justify-between text-left p-5 rounded-2xl border-2 transition-all duration-150
                       ${sel ? 'bg-yellow-50 border-yellow-400 shadow-md' : 'bg-white border-yellow-200 hover:border-yellow-400'}`}>
                     <div>
                       <div className="font-display font-extrabold italic text-[22px] uppercase text-brand-ink">{raceKids.label}</div>
-                      <div className="text-[13px] text-brand-muted">7 a 12 anos · Todos ganham medalha e sobem ao pódio!</div>
+                      <div className="text-[13px] text-brand-muted">7 a 12 anos · 300 metros · Todos ganham medalha e sobem ao pódio!</div>
                       <div className="mt-1 inline-block bg-yellow-400 text-yellow-900 text-[11px] font-bold px-2 py-0.5 rounded-full">
                         🏅 Todos os participantes são campeões
                       </div>
@@ -283,7 +283,7 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
                       ${sel ? 'bg-green-50 border-green-400 shadow-md' : 'bg-white border-green-200 hover:border-green-400'}`}>
                     <div>
                       <div className="font-display font-extrabold italic text-[22px] uppercase text-brand-ink">{raceCaminhada.label}</div>
-                      <div className="text-[13px] text-brand-muted">Qualquer idade · Sem cronometragem competitiva · Certificado de conclusão</div>
+                      <div className="text-[13px] text-brand-muted">Qualquer idade · 5 km · Todos ganham medalha e sobem ao pódio!</div>
                       {!lote && <div className="text-[12px] text-orange-500 mt-1">Inscrições encerradas</div>}
                     </div>
                     <div className="text-right">
@@ -306,7 +306,7 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
             {/* Alerta Kids */}
             {f.modalidade === 'kids' && (
               <div className="bg-yellow-50 border border-yellow-300 rounded-xl px-4 py-3 text-[13px] text-yellow-800">
-                <strong>🎖️ Inscrição Kids (7-12 anos)</strong><br />
+                <strong>🎖️ Inscrição Kids (7-12 anos · 300 metros)</strong><br />
                 Preencha os dados da criança. Use o campo "Contato de emergência" para informar o responsável legal (nome e telefone).
                 A categoria Kids é automaticamente "Kids Geral" — todos ganham medalha!
               </div>
@@ -315,7 +315,7 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
             {f.modalidade === 'caminhada' && (
               <div className="bg-green-50 border border-green-300 rounded-xl px-4 py-3 text-[13px] text-green-800">
                 <strong>🚶 Caminhada 5 km</strong><br />
-                Modalidade sem cronometragem competitiva. Você receberá certificado de conclusão ao final.
+                Modalidade de 5 km. Todos ganham medalha e sobem ao pódio — sem cronometragem competitiva.
               </div>
             )}
 
@@ -397,7 +397,7 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
                 <div className="text-[13px] text-yellow-700">Categoria especial</div>
                 <div className="font-display font-extrabold italic text-[32px] text-yellow-600 mt-1">🎖️ Kids Geral</div>
                 <div className="text-[12px] text-yellow-700 mt-0.5 font-medium">
-                  Todos os participantes de 7 a 12 anos ganham medalha e sobem ao pódio!
+                  Todos os participantes de 7 a 12 anos ganham medalha e sobem ao pódio! (300 metros)
                 </div>
               </div>
             ) : f.modalidade === 'caminhada' ? (
@@ -405,7 +405,7 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
                 <div className="text-[13px] text-green-700">Modalidade</div>
                 <div className="font-display font-extrabold italic text-[32px] text-green-600 mt-1">🚶 Caminhada</div>
                 <div className="text-[12px] text-green-700 mt-0.5">
-                  Sem cronometragem competitiva · Certificado de conclusão
+                  Todos os participantes ganham medalha e sobem ao pódio! Modalidade de 5 km.
                 </div>
               </div>
             ) : (
