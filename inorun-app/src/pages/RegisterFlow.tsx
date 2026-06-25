@@ -32,7 +32,7 @@ interface FormState {
   modalidade: Modalidade | '';
   nome: string; cpf: string; nasc: string; sexo: 'M' | 'F' | '';
   email: string; tel: string; emergencia: string;
-  camiseta: string; cupom: string; pag: 'pix' | 'cartao'; termo: boolean;
+  camiseta: string; cupom: string; pag: 'pix'; termo: boolean;
 }
 
 export default function RegisterFlow({ onBack, onDone }: Props) {
@@ -192,7 +192,7 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
         {/* Info box */}
         <div className="mt-5 bg-brand-lilac border border-brand-lilac-mid rounded-xl px-4 py-3 text-[13px] text-brand-purple-dark">
           <strong>Inscrição INO RUN 2026.</strong> Categoria calculada automaticamente pela idade em 11/10/2026.
-          CPF único por prova. Pagamento via Pix ou cartão.
+          CPF único por prova. Pagamento via Pix.
         </div>
 
         {/* Progress */}
@@ -496,16 +496,15 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
             </div>
 
 
-            <div className="grid grid-cols-2 gap-3">
-              {([['pix', 'Pix', 'Confirmação imediata'], ['cartao', 'Cartão', 'Em até 12x']] as const).map(([id, titulo, sub]) => (
-                <button key={id} id={`select-pag-${id}`}
-                  onClick={() => set('pag', id)}
-                  className={`text-left p-4 rounded-xl border-2 transition-all duration-150
-                    ${f.pag === id ? 'bg-brand-lilac border-brand-purple-mid' : 'bg-white border-brand-lilac-mid hover:border-brand-purple-mid'}`}>
-                  <div className="font-bold text-brand-ink">{titulo}</div>
-                  <div className="text-[12px] text-brand-muted mt-0.5">{sub}</div>
-                </button>
-              ))}
+            {/* Pagamento — apenas Pix disponível na fase atual */}
+            <div className="p-4 rounded-xl border-2 border-brand-purple-mid bg-brand-lilac flex items-center justify-between">
+              <div>
+                <div className="font-bold text-brand-ink flex items-center gap-2">
+                  <span className="text-[18px]">🔑</span> Pix
+                </div>
+                <div className="text-[12px] text-brand-muted mt-0.5">Confirmação imediata após o pagamento</div>
+              </div>
+              <span className="bg-brand-purple text-white text-[11px] font-bold px-3 py-1 rounded-full">Selecionado</span>
             </div>
 
             <label className="flex items-start gap-3 text-[13px] text-brand-muted cursor-pointer">
