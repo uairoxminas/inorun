@@ -39,6 +39,14 @@ serve(async (req) => {
       return jsonResponse({ aprovado: false, motivo: "Dados incompletos." }, 400);
     }
 
+    // ══════════════════════════════════════════════════════
+    // ⚠️  MODO TESTE — REMOVER ANTES DE IR PARA PRODUCAO
+    // Bypassa o Gemini e aprova qualquer comprovante
+    // ══════════════════════════════════════════════════════
+    const MODO_TESTE = true; // mudar para false para reativar Gemini
+    let analise = { aprovado: true, motivo: "Comprovante aprovado (modo teste)!" };
+
+    if (!MODO_TESTE) {
     // ── 1. ANALISAR COMPROVANTE COM GEMINI VISION ──────────────────────────
     const valorDisplay = VALOR_ESPERADO_DISPLAY(valor_centavos);
     const prompt = `
@@ -86,23 +94,23 @@ Seja objetivo. Nao aprove comprovantes duvidosos ou parcialmente visiveis.
     if (!geminiResp.ok) {
       const gemErr = await geminiResp.text();
       console.error("Gemini error:", gemErr);
-      // Retorna 200 com aprovado=false — e resultado de negocio, nao erro de servidor
       return jsonResponse({ aprovado: false, motivo: "Nao foi possivel analisar a imagem. Envie uma foto clara do comprovante em JPG ou PNG." }, 200);
     }
 
     const geminiData = await geminiResp.json();
     const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
-    let analise: { aprovado: boolean; motivo: string; valor_identificado?: string; tipo_transferencia?: string };
     try {
       analise = JSON.parse(rawText);
     } catch {
       analise = { aprovado: false, motivo: "Imagem nao reconhecida. Envie uma foto clara do comprovante Pix em JPG ou PNG." };
     }
+    } // fim if (!MODO_TESTE)
 
     // ── 2. SE REPROVADO: retorna motivo ────────────────────────────────────
     if (!analise.aprovado) {
       return jsonResponse({ aprovado: false, motivo: analise.motivo }, 200);
     }
+
 
     // ── 3. SE APROVADO: confirma inscricao no banco ────────────────────────
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE);
