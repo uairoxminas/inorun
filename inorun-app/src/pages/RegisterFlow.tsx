@@ -110,8 +110,9 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
   const sexoObrigatorio = f.modalidade === 'corrida';
   const canAdvance: Record<number, boolean> = {
     1: !!f.race_id && !!loteAtual,
-    2: !!f.nome && !!f.cpf && !!f.nasc && !!f.email && !cpfErro && !idadeErro &&
-       (!sexoObrigatorio || !!f.sexo),   // sexo só bloqueia na corrida
+    2: !!f.nome && !!f.cpf && !!f.nasc && !!f.email && !!f.tel && !!f.emergencia &&
+       !cpfErro && !idadeErro &&
+       (!sexoObrigatorio || !!f.sexo),
     3: !!f.camiseta,
     4: f.termo,
   };
@@ -417,15 +418,15 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="label">Telefone</label>
-                <input id="input-tel" className="input" value={f.tel}
+                <label className="label">Telefone <span className="text-red-500">*</span></label>
+                <input id="input-tel" className={`input ${!f.tel && f.nome ? 'border-red-300' : ''}`} value={f.tel}
                   onChange={e => set('tel', e.target.value)} placeholder="(31) 90000-0000" />
               </div>
               <div>
                 <label className="label">
-                  {f.modalidade === 'kids' ? 'Responsável legal (nome e tel.)' : 'Contato de emergência'}
+                  {f.modalidade === 'kids' ? 'Responsável legal (nome e tel.)' : 'Contato de emergência'} <span className="text-red-500">*</span>
                 </label>
-                <input id="input-emergencia" className="input" value={f.emergencia}
+                <input id="input-emergencia" className={`input ${!f.emergencia && f.nome ? 'border-red-300' : ''}`} value={f.emergencia}
                   onChange={e => set('emergencia', e.target.value)} placeholder="Nome e telefone" />
               </div>
             </div>
