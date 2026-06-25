@@ -80,18 +80,9 @@ export default function PixPaymentScreen({
       if (!uploadErr) {
         const { data: urlData } = supabase.storage.from("comprovantes").getPublicUrl(path);
         comprovante_url = urlData?.publicUrl ?? null;
-
-        // Salva URL + mime no pix_receipt imediatamente (antes do Gemini)
-        await supabase.from("pix_receipt").upsert({
-          registration_id,
-          comprovante_url,
-          comprovante_mime: arquivo.type,
-          em_analise: false,
-          gemini_resultado: null,
-          gemini_motivo:    null,
-          gemini_raw:       null,
-        }, { onConflict: "registration_id" });
+        console.log("Storage upload OK:", comprovante_url);
       } else {
+        // Se upload falhar, loga mas continua (Edge Function tenta salvar também)
         console.warn("Storage upload falhou:", uploadErr.message);
       }
 
@@ -103,10 +94,11 @@ export default function PixPaymentScreen({
         reader.readAsDataURL(arquivo);
       });
 
-      // ── PASSO 3: Chama Edge Function (análise Gemini + update DB) ────
+      // ── PASSO 3: Edge Function (service_role salva pix_receipt + Gemini) ─
+      // A URL do comprovante é enviada para a Edge Function que salva no DB
       const resultado = await verificarComprovantePix(
         registration_id, valor_total, atleta_email, atleta_nome,
-        prova_label, categoria, base64, arquivo.type
+        prova_label, categoria, base64, arquivo.type, comprovante_url
       );
 
       if (resultado.aprovado && resultado.bib_number) {

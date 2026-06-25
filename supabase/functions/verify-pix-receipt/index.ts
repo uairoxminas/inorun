@@ -26,6 +26,7 @@ serve(async (req) => {
     const {
       registration_id, valor_centavos, atleta_email, atleta_nome,
       prova_label, categoria, imagem_base64, mime_type,
+      comprovante_url: comprovante_url_recebida,
     } = await req.json();
 
     if (!registration_id || !imagem_base64) {
@@ -34,35 +35,37 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE);
 
-    // ── 1. SALVAR COMPROVANTE NO STORAGE (REST API direta — mais confiável) ──
-    let comprovante_url: string | null = null;
-    try {
-      const ext  = mime_type?.includes("png") ? "png" : mime_type?.includes("webp") ? "webp" : "jpg";
-      const path = `${registration_id}/comprovante_${Date.now()}.${ext}`;
-      const bytes = Uint8Array.from(atob(imagem_base64), c => c.charCodeAt(0));
-
-      const uploadResp = await fetch(
-        `${SUPABASE_URL}/storage/v1/object/comprovantes/${path}`,
-        {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${SUPABASE_SERVICE}`,
-            "Content-Type": mime_type || "image/jpeg",
-            "x-upsert": "true",
-          },
-          body: bytes,
+    // ── 1. URL do comprovante: usa a recebida do browser (já salva no Storage)
+    //    Fallback: tenta upload direto se URL não veio
+    let comprovante_url: string | null = comprovante_url_recebida ?? null;
+    if (!comprovante_url) {
+      try {
+        const ext  = mime_type?.includes("png") ? "png" : mime_type?.includes("webp") ? "webp" : "jpg";
+        const path = `${registration_id}/comprovante_${Date.now()}.${ext}`;
+        const bytes = Uint8Array.from(atob(imagem_base64), c => c.charCodeAt(0));
+        const uploadResp = await fetch(
+          `${SUPABASE_URL}/storage/v1/object/comprovantes/${path}`,
+          {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${SUPABASE_SERVICE}`,
+              "Content-Type": mime_type || "image/jpeg",
+              "x-upsert": "true",
+            },
+            body: bytes,
+          }
+        );
+        if (uploadResp.ok) {
+          comprovante_url = `${SUPABASE_URL}/storage/v1/object/public/comprovantes/${path}`;
+          console.log("Fallback upload OK:", comprovante_url);
+        } else {
+          console.error("Fallback upload error:", uploadResp.status, await uploadResp.text());
         }
-      );
-
-      if (uploadResp.ok) {
-        comprovante_url = `${SUPABASE_URL}/storage/v1/object/public/comprovantes/${path}`;
-        console.log("Storage upload OK:", comprovante_url);
-      } else {
-        const errText = await uploadResp.text();
-        console.error("Storage upload error:", uploadResp.status, errText);
+      } catch (e) {
+        console.error("Fallback upload exception:", e);
       }
-    } catch (e) {
-      console.error("Storage exception:", e);
+    } else {
+      console.log("Usando URL recebida do browser:", comprovante_url);
     }
 
     // ── 2. ANALISAR COM GEMINI VISION ────────────────────────────────────

@@ -151,7 +151,8 @@ export async function verificarComprovantePix(
   prova_label: string,
   categoria: string,
   imagemBase64: string,
-  mimeType: string
+  mimeType: string,
+  comprovanteUrl?: string | null
 ): Promise<{ aprovado: boolean; motivo: string; bib_number?: number; em_analise?: boolean }> {
   const res = await fetch(
     `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-pix-receipt`,
@@ -170,6 +171,7 @@ export async function verificarComprovantePix(
         categoria,
         imagem_base64: imagemBase64,
         mime_type: mimeType,
+        comprovante_url: comprovanteUrl ?? null,
       }),
     }
   );
@@ -179,3 +181,4 @@ export async function verificarComprovantePix(
   }
   return res.json();
 }
+
