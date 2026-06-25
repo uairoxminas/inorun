@@ -230,6 +230,25 @@ export default function PixPaymentScreen({
           Nossa IA esta verificando seu comprovante. Aguarde alguns segundos...
         </p>
       )}
+
+      {/* ── BOTAO DE TESTE (remover antes da producao) ── */}
+      <button
+        id="btn-simular-aprovacao"
+        onClick={() => onConfirmado({
+          registration_id,
+          bib_number: 999,
+          categoria,
+          atleta_nome,
+          prova_label,
+          valor_centavos: valor_total,
+          metodo: "pix",
+          status: "confirmado",
+        })}
+        className="w-full py-2 rounded-xl text-[12px] font-bold text-brand-muted border border-dashed border-brand-lilac-mid hover:border-brand-purple hover:text-brand-purple transition-all"
+      >
+        🧪 Simular aprovacao (somente para teste)
+      </button>
+
     </div>
   );
 }
