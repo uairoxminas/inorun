@@ -3,14 +3,9 @@
 -- Executar manualmente no Supabase SQL Editor
 
 -- ══════════════════════════════════════════════════════════════
--- 1. ADICIONAR VALOR 'em_analise' AO ENUM DE STATUS
+-- 1. ADICIONAR VALOR 'em_analise' AO ENUM reg_status
 -- ══════════════════════════════════════════════════════════════
-DO $$
-BEGIN
-  ALTER TYPE registration_status ADD VALUE IF NOT EXISTS 'em_analise';
-EXCEPTION WHEN others THEN
-  NULL;
-END$$;
+ALTER TYPE reg_status ADD VALUE IF NOT EXISTS 'em_analise';
 
 -- ══════════════════════════════════════════════════════════════
 -- 2. ADICIONAR COLUNAS NA pix_receipt
@@ -42,23 +37,23 @@ BEGIN
       INTO v_bib
       FROM registration
      WHERE event_id = v_event
-       AND status   = 'confirmado';
+       AND status   = 'confirmado'::reg_status;
 
     UPDATE registration
-       SET status     = 'confirmado',
+       SET status     = 'confirmado'::reg_status,
            bib_number = v_bib,
            updated_at = now()
      WHERE id = p_registration_id
-       AND status IN ('em_analise', 'pendente');
+       AND status IN ('em_analise'::reg_status, 'pendente'::reg_status);
 
     RETURN jsonb_build_object('ok', true, 'bib_number', v_bib);
 
   ELSIF p_acao = 'rejeitar' THEN
     UPDATE registration
-       SET status     = 'pendente',
+       SET status     = 'pendente'::reg_status,
            updated_at = now()
      WHERE id = p_registration_id
-       AND status = 'em_analise';
+       AND status = 'em_analise'::reg_status;
 
     RETURN jsonb_build_object('ok', true, 'bib_number', null);
 
@@ -93,7 +88,7 @@ FROM registration r
 JOIN athlete      a  ON a.id  = r.athlete_id
 JOIN race         rc ON rc.id = r.race_id
 LEFT JOIN pix_receipt pr ON pr.registration_id = r.id
-WHERE r.status = 'em_analise'
+WHERE r.status = 'em_analise'::reg_status
 ORDER BY r.created_at ASC;
 
 GRANT SELECT ON inscricoes_em_analise TO authenticated;
