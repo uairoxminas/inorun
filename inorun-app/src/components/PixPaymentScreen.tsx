@@ -1,4 +1,4 @@
-﻿// src/components/PixPaymentScreen.tsx
+// src/components/PixPaymentScreen.tsx
 // Tela de pagamento Pix — chave CNPJ, instrucoes, upload e verificacao Gemini
 // Beneficiaria: ANA CRISTINA CORREA GOMES — CNPJ: 51.950.403/0001-32
 
@@ -83,10 +83,20 @@ export default function PixPaymentScreen({
           atleta_nome, prova_label, valor_centavos: valor_total, metodo: "pix", status: "confirmado",
         });
       } else {
-        setRejeitado(resultado.motivo || "Comprovante nao aprovado. Verifique e tente novamente.");
+        setRejeitado(resultado.motivo || "Comprovante nao aprovado. Verifique os dados e tente novamente.");
       }
     } catch (e: unknown) {
-      setErro(e instanceof Error ? e.message : "Erro inesperado. Tente novamente.");
+      // Tenta extrair motivo de resposta JSON cru (ex: {"aprovado":false,"motivo":"..."})
+      const raw = e instanceof Error ? e.message : "";
+      try {
+        const match = raw.match(/\{.*\}/);
+        if (match) {
+          const parsed = JSON.parse(match[0]);
+          if (parsed.motivo) { setRejeitado(parsed.motivo); return; }
+        }
+      } catch { /* nao e JSON */ }
+      // Erro de rede ou timeout
+      setErro("Nao foi possivel conectar ao servidor. Verifique sua internet e tente novamente.");
     } finally { setLoading(false); }
   };
 
@@ -170,16 +180,42 @@ export default function PixPaymentScreen({
           onChange={e => { const f = e.target.files?.[0]; if (f) handleArquivo(f); }} />
       </div>
 
-      {/* Erro / Rejeicao */}
+      {/* Mensagem de ERRO TECNICO (rede, timeout) */}
       {erro && (
-        <div className="bg-red-50 border border-red-300 rounded-xl px-4 py-3 text-[13px] text-red-600">
-          Erro: {erro}
+        <div className="bg-red-50 border border-red-300 rounded-2xl p-4 text-[13px]">
+          <div className="font-bold text-red-700 mb-1">Problema de conexao</div>
+          <p className="text-red-600 mb-3">{erro}</p>
+          <div className="bg-white border border-red-200 rounded-xl p-3 text-[12px] text-red-700">
+            <strong>Precisa de ajuda?</strong> Entre em contato:<br />
+            <a href="mailto:inscricoes@inorun.com.br" className="underline font-semibold">inscricoes@inorun.com.br</a>
+            {" "}ou informe o ID da sua inscricao: <span className="font-mono bg-red-100 px-1 rounded">{registration_id.slice(0,8)}...</span>
+          </div>
         </div>
       )}
+
+      {/* Mensagem de COMPROVANTE NAO APROVADO */}
       {rejeitado && (
-        <div className="bg-orange-50 border border-orange-300 rounded-xl px-4 py-3 text-[13px] text-orange-700">
-          <strong>Comprovante nao aprovado:</strong><br />{rejeitado}
-          <div className="text-[12px] mt-1 text-orange-600">Verifique o valor e o beneficiario e tente novamente.</div>
+        <div className="bg-orange-50 border border-orange-300 rounded-2xl p-4 text-[13px]">
+          <div className="flex items-center gap-2 font-bold text-orange-800 mb-2">
+            <span className="text-xl">⚠️</span> Comprovante nao aprovado pela analise automatica
+          </div>
+          <p className="text-orange-700 mb-3"><strong>Motivo:</strong> {rejeitado}</p>
+          <div className="space-y-1 text-[12px] text-orange-700 mb-3">
+            <p>Verifique se:</p>
+            <ul className="list-disc pl-4 space-y-0.5">
+              <li>O valor e exatamente <strong>{fmt(valor_total)}</strong></li>
+              <li>O beneficiario e <strong>ANA CRISTINA CORREA GOMES</strong></li>
+              <li>O status do Pix e <strong>Concluido</strong> (nao pendente)</li>
+              <li>A imagem esta ntida e legivel (evite PDF, prefira foto JPG)</li>
+            </ul>
+          </div>
+          <div className="bg-white border border-orange-200 rounded-xl p-3 text-[12px] text-orange-800">
+            <strong>Ainda com problemas?</strong> Envie o comprovante diretamente:<br />
+            <a href="mailto:inscricoes@inorun.com.br" className="underline font-semibold text-orange-700">
+              inscricoes@inorun.com.br
+            </a>
+            {" "}— inclua seu nome e CPF.
+          </div>
         </div>
       )}
 

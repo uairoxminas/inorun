@@ -1,4 +1,4 @@
-﻿// supabase/functions/verify-pix-receipt/index.ts
+// supabase/functions/verify-pix-receipt/index.ts
 // Edge Function: verifica comprovante Pix com Gemini Vision e envia email via Resend
 // Secrets necessarios no Supabase Dashboard:
 //   GEMINI_API_KEY  — chave do Google AI Studio
@@ -86,7 +86,8 @@ Seja objetivo. Nao aprove comprovantes duvidosos ou parcialmente visiveis.
     if (!geminiResp.ok) {
       const gemErr = await geminiResp.text();
       console.error("Gemini error:", gemErr);
-      return jsonResponse({ aprovado: false, motivo: "Erro ao analisar comprovante. Tente novamente." }, 500);
+      // Retorna 200 com aprovado=false — e resultado de negocio, nao erro de servidor
+      return jsonResponse({ aprovado: false, motivo: "Nao foi possivel analisar a imagem. Envie uma foto clara do comprovante em JPG ou PNG." }, 200);
     }
 
     const geminiData = await geminiResp.json();
@@ -95,7 +96,7 @@ Seja objetivo. Nao aprove comprovantes duvidosos ou parcialmente visiveis.
     try {
       analise = JSON.parse(rawText);
     } catch {
-      analise = { aprovado: false, motivo: "Nao foi possivel analisar o comprovante. Envie uma imagem mais clara." };
+      analise = { aprovado: false, motivo: "Imagem nao reconhecida. Envie uma foto clara do comprovante Pix em JPG ou PNG." };
     }
 
     // ── 2. SE REPROVADO: retorna motivo ────────────────────────────────────
@@ -111,7 +112,8 @@ Seja objetivo. Nao aprove comprovantes duvidosos ou parcialmente visiveis.
 
     if (confErr || confirmacao?.error) {
       console.error("Confirm error:", confErr || confirmacao?.error);
-      return jsonResponse({ aprovado: false, motivo: "Erro ao confirmar inscricao. Contate o suporte." }, 500);
+      // Erro real de banco — retorna 200 com mensagem amigavel
+      return jsonResponse({ aprovado: false, motivo: "Erro interno ao confirmar inscricao. Entre em contato: inscricoes@inorun.com.br" }, 200);
     }
 
     const bib_number = confirmacao.bib_number as number;
