@@ -68,33 +68,25 @@ export default function PixPaymentScreen({
     if (!arquivo) { setErro("Selecione o comprovante antes de enviar."); return; }
     setLoading(true); setErro(""); setRejeitado("");
     try {
-      // ── 1. Upload direto para Storage ────────────────────────────────────
-      const ext  = arquivo.type.includes("png") ? "png" : arquivo.type.includes("webp") ? "webp" : "jpg";
-      const path = `${registration_id}/comprovante_${Date.now()}.${ext}`;
-      let comprovante_url: string | null = null;
-
-      const { error: uploadErr } = await supabase.storage
+      // ── 1. Upload para Storage (padrão UAIROX) ───────────────────────────
+      const ext  = arquivo.name.split(".").pop() || "jpg";
+      const fileName = `${registration_id}-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
         .from("comprovantes")
-        .upload(path, arquivo, { contentType: arquivo.type, upsert: true });
+        .upload(fileName, arquivo, { contentType: arquivo.type, upsert: true });
+      if (upErr) throw new Error("Falha no upload: " + upErr.message);
 
-      if (!uploadErr) {
-        const { data: urlData } = supabase.storage.from("comprovantes").getPublicUrl(path);
-        comprovante_url = urlData?.publicUrl ?? null;
-      } else {
-        console.warn("Storage upload falhou:", uploadErr.message);
-        // Não bloqueia — continua sem imagem (admin pode confirmar manualmente)
-      }
+      const { data: urlData } = supabase.storage.from("comprovantes").getPublicUrl(fileName);
+      const comprovante_url = urlData.publicUrl;
 
-      // ── 2. Salva URL via RPC (SECURITY DEFINER — bypassa RLS) ───────────
-      if (comprovante_url) {
-        const { error: rpcErr } = await supabase.rpc("salvar_comprovante_url", {
-          p_registration_id: registration_id,
-          p_url: comprovante_url,
-        });
-        if (rpcErr) console.warn("RPC salvar_comprovante_url falhou:", rpcErr.message);
-      }
+      // ── 2. Salva URL diretamente na tabela registration (padrão UAIROX) ──
+      const { error: updErr } = await supabase
+        .from("registration")
+        .update({ comprovante_url })
+        .eq("id", registration_id);
+      if (updErr) console.warn("Update registration falhou:", updErr.message);
 
-      // ── 3. Base64 para Gemini (Edge Function analisa + atualiza status) ──
+      // ── 3. Gemini via Edge Function ──────────────────────────────────────
       const reader = new FileReader();
       const base64 = await new Promise<string>((resolve, reject) => {
         reader.onload = () => resolve((reader.result as string).split(",")[1]);
@@ -127,7 +119,7 @@ export default function PixPaymentScreen({
           if (parsed.motivo) { setRejeitado(parsed.motivo); return; }
         }
       } catch { /* nao e JSON */ }
-      setErro("Nao foi possivel conectar ao servidor. Verifique sua internet e tente novamente.");
+      setErro(raw || "Nao foi possivel conectar ao servidor. Verifique sua internet e tente novamente.");
     } finally { setLoading(false); }
   };
 
