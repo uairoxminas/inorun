@@ -121,34 +121,65 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
     if (!confirm(msg)) return;
     setRevisando(true);
     try {
+      // Tenta via Edge Function admin-confirmar (envia email automático)
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-confirmar`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token}`,
-            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-          },
-          body: JSON.stringify({
-            registration_id: atleta.registration_id,
-            acao,
-          }),
-        }
-      );
-      const data = await res.json();
-      if (!data.ok) {
-        alert('Erro: ' + (data.error ?? 'Erro desconhecido'));
-      } else {
-        alert(acao === 'confirmar'
-          ? `✅ Inscrição confirmada! Bib #${data.bib_number}\nEmail de confirmação enviado ao atleta.`
-          : '❌ Comprovante rejeitado. Inscrição voltou para pendente.\nAtleta notificado por email.');
-        await onRecarregar();
-        setAtleta(null);
+      const edgeFnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-confirmar`;
+      const res = await fetch(edgeFnUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ registration_id: atleta.registration_id, acao }),
+      });
+
+      let data: any = null;
+      if (res.ok) {
+        data = await res.json();
       }
+
+      if (data?.ok) {
+        // Edge Function funcionou e enviou email
+        alert(acao === 'confirmar'
+          ? `✅ Inscrição confirmada! Bib #${data.bib_number}\nEmail enviado ao atleta.`
+          : '❌ Comprovante rejeitado. Atleta notificado por email.');
+      } else {
+        // Fallback: RPC direto (sem email automático)
+        const { data: rpc, error: rpcErr } = await supabase.rpc('confirmar_inscricao_manual', {
+          p_registration_id: atleta.registration_id,
+          p_acao: acao,
+        });
+        if (rpcErr || rpc?.error) {
+          alert('Erro: ' + (rpcErr?.message || rpc?.error));
+          return;
+        }
+        alert(acao === 'confirmar'
+          ? `✅ Inscrição confirmada! Bib #${rpc.bib_number}`
+          : '❌ Comprovante rejeitado. Inscrição voltou para pendente.');
+      }
+
+      await onRecarregar();
+      setAtleta(null);
     } catch (e) {
-      alert('Erro inesperado: ' + String(e));
+      // Fallback total: RPC direto
+      try {
+        const { data: rpc, error: rpcErr } = await supabase.rpc('confirmar_inscricao_manual', {
+          p_registration_id: atleta.registration_id,
+          p_acao: acao,
+        });
+        if (rpcErr || rpc?.error) {
+          alert('Erro: ' + (rpcErr?.message || rpc?.error));
+        } else {
+          alert(acao === 'confirmar'
+            ? `✅ Inscrição confirmada! Bib #${rpc.bib_number}`
+            : '❌ Comprovante rejeitado.');
+          await onRecarregar();
+          setAtleta(null);
+        }
+      } catch (e2) {
+        alert('Erro inesperado: ' + String(e2));
+      }
     } finally { setRevisando(false); }
   };
 
