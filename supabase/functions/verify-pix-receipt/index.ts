@@ -116,8 +116,10 @@ Se qualquer regra falhar, aprovado=false com motivo especifico.
       console.error("Gemini error:", e);
     }
 
-    // Salva análise na tabela pix_receipt
-    await supabase.from("pix_receipt").upsert({
+    // Salva análise no pix_receipt: DELETE + INSERT (sem precisar de UNIQUE constraint)
+    console.log("Salvando pix_receipt para registration_id:", registration_id, "| comprovante_url:", comprovante_url);
+    await supabase.from("pix_receipt").delete().eq("registration_id", registration_id);
+    const { error: insertErr } = await supabase.from("pix_receipt").insert({
       registration_id,
       gemini_resultado: analise.aprovado ? "aprovado" : "reprovado",
       gemini_motivo:    analise.motivo,
@@ -125,7 +127,9 @@ Se qualquer regra falhar, aprovado=false com motivo especifico.
       comprovante_url,
       comprovante_mime: mime_type,
       em_analise:       !analise.aprovado,
-    }, { onConflict: "registration_id" });
+    });
+    if (insertErr) console.error("pix_receipt insert error:", JSON.stringify(insertErr));
+    else           console.log("pix_receipt salvo com sucesso!");
 
     // ── 3A. GEMINI APROVOU → confirma imediatamente ──────────────────────
     if (analise.aprovado) {
