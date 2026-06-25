@@ -34,23 +34,35 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE);
 
-    // ── 1. SALVAR COMPROVANTE NO STORAGE (sempre, antes da análise) ──────
+    // ── 1. SALVAR COMPROVANTE NO STORAGE (REST API direta — mais confiável) ──
     let comprovante_url: string | null = null;
     try {
-      const ext = mime_type?.includes("png") ? "png" : mime_type?.includes("webp") ? "webp" : "jpg";
+      const ext  = mime_type?.includes("png") ? "png" : mime_type?.includes("webp") ? "webp" : "jpg";
       const path = `${registration_id}/comprovante_${Date.now()}.${ext}`;
       const bytes = Uint8Array.from(atob(imagem_base64), c => c.charCodeAt(0));
-      const { error: upErr } = await supabase.storage
-        .from("comprovantes")
-        .upload(path, bytes, { contentType: mime_type || "image/jpeg", upsert: true });
-      if (!upErr) {
-        const { data: urlData } = supabase.storage.from("comprovantes").getPublicUrl(path);
-        comprovante_url = urlData?.publicUrl ?? null;
+
+      const uploadResp = await fetch(
+        `${SUPABASE_URL}/storage/v1/object/comprovantes/${path}`,
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${SUPABASE_SERVICE}`,
+            "Content-Type": mime_type || "image/jpeg",
+            "x-upsert": "true",
+          },
+          body: bytes,
+        }
+      );
+
+      if (uploadResp.ok) {
+        comprovante_url = `${SUPABASE_URL}/storage/v1/object/public/comprovantes/${path}`;
+        console.log("Storage upload OK:", comprovante_url);
       } else {
-        console.error("Storage upload error:", upErr);
+        const errText = await uploadResp.text();
+        console.error("Storage upload error:", uploadResp.status, errText);
       }
     } catch (e) {
-      console.error("Storage error:", e);
+      console.error("Storage exception:", e);
     }
 
     // ── 2. ANALISAR COM GEMINI VISION ────────────────────────────────────
