@@ -26,6 +26,11 @@ export interface InscritoRow {
   paid_at: string | null;
   checked_in_at: string | null;
   created_at: string;
+  // Campos do comprovante Pix (para revisão manual)
+  comprovante_url?: string | null;
+  comprovante_mime?: string | null;
+  gemini_motivo?: string | null;
+  gemini_resultado?: string | null;
 }
 
 export interface MetricasAdmin {
@@ -100,7 +105,31 @@ export async function getInscritos(): Promise<InscritoRow[]> {
     .order('created_at', { ascending: false });
 
   if (error) { console.error('getInscritos:', error.message); return []; }
-  return (data ?? []) as InscritoRow[];
+  const rows = (data ?? []) as InscritoRow[];
+
+  // Enriquece inscrições em_analise com dados do comprovante
+  const emAnalise = rows.filter(r => r.status === 'em_analise');
+  if (emAnalise.length > 0) {
+    const ids = emAnalise.map(r => r.registration_id);
+    const { data: receipts } = await supabase
+      .from('pix_receipt')
+      .select('registration_id, comprovante_url, comprovante_mime, gemini_motivo, gemini_resultado')
+      .in('registration_id', ids);
+    if (receipts) {
+      const map = Object.fromEntries(receipts.map((r: any) => [r.registration_id, r]));
+      rows.forEach(r => {
+        if (r.status === 'em_analise' && map[r.registration_id]) {
+          const rec = map[r.registration_id];
+          r.comprovante_url    = rec.comprovante_url;
+          r.comprovante_mime   = rec.comprovante_mime;
+          r.gemini_motivo      = rec.gemini_motivo;
+          r.gemini_resultado   = rec.gemini_resultado;
+        }
+      });
+    }
+  }
+
+  return rows;
 }
 
 export function calcularMetricas(inscritos: InscritoRow[]): MetricasAdmin {

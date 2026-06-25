@@ -4,21 +4,24 @@ import { useState } from 'react';
 import { formataBRL } from '../../lib/precoLoteAtual';
 import { cancelarInscricao, editarInscricao, gerarCSV } from '../../services/adminService';
 import type { InscritoRow } from '../../services/adminService';
+import { supabase } from '../../lib/supabase';
 
 const CAMISETAS = ['PP', 'P', 'M', 'G', 'GG', 'XG'];
-const STATUS_OPTIONS = ['pendente', 'confirmado', 'cancelado'];
+const STATUS_OPTIONS = ['pendente', 'confirmado', 'cancelado', 'em_analise'];
 
 interface Props { inscritos: InscritoRow[]; onRecarregar: () => void; loading: boolean; }
 
 function Badge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    confirmado: 'bg-green-100 text-green-700 border-green-300',
-    pendente:   'bg-yellow-100 text-yellow-700 border-yellow-300',
-    cancelado:  'bg-red-100 text-red-600 border-red-300',
+    confirmado:  'bg-green-100 text-green-700 border-green-300',
+    pendente:    'bg-yellow-100 text-yellow-700 border-yellow-300',
+    cancelado:   'bg-red-100 text-red-600 border-red-300',
+    em_analise:  'bg-amber-100 text-amber-700 border-amber-300',
   };
+  const label: Record<string, string> = { em_analise: '⏳ Em Análise' };
   return (
     <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${map[status] ?? 'bg-brand-lilac text-brand-muted border-brand-lilac-mid'}`}>
-      {status}
+      {label[status] ?? status}
     </span>
   );
 }
@@ -31,6 +34,7 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
   const [modoEdicao, setModoEdicao]     = useState(false);
   const [salvando, setSalvando]         = useState(false);
   const [cancelando, setCancelando]     = useState(false);
+  const [revisando, setRevisando]       = useState(false);
   const [pag, setPag]                   = useState(1);
   const POR_PAG = 20;
 
@@ -109,6 +113,32 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
     setCancelando(false);
   };
 
+  const handleRevisao = async (acao: 'confirmar' | 'rejeitar') => {
+    if (!atleta) return;
+    const msg = acao === 'confirmar'
+      ? `Confirmar pagamento de ${atleta.nome} e gerar número de peito?`
+      : `Rejeitar comprovante de ${atleta.nome}? A inscrição voltará para pendente.`;
+    if (!confirm(msg)) return;
+    setRevisando(true);
+    try {
+      const { data, error } = await supabase.rpc('confirmar_inscricao_manual', {
+        p_registration_id: atleta.registration_id,
+        p_acao: acao,
+      });
+      if (error || data?.error) {
+        alert('Erro: ' + (error?.message || data?.error));
+      } else {
+        alert(acao === 'confirmar'
+          ? `✅ Inscrição confirmada! Bib #${data.bib_number}`
+          : '❌ Comprovante rejeitado. Inscrição voltou para pendente.');
+        await onRecarregar();
+        setAtleta(null);
+      }
+    } catch (e) {
+      alert('Erro inesperado: ' + String(e));
+    } finally { setRevisando(false); }
+  };
+
   const handleExport = () => {
     const csv  = gerarCSV(filtrados);
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
@@ -139,6 +169,7 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
           <option value="todos">Todos status</option>
           <option value="confirmado">Confirmados</option>
           <option value="pendente">Pendentes</option>
+          <option value="em_analise">⏳ Em Análise</option>
           <option value="cancelado">Cancelados</option>
         </select>
         <select value={filtroProva} onChange={e => { setFiltroProva(e.target.value); setPag(1); }}
@@ -286,6 +317,52 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
                     ))}
                   </div>
 
+                  {/* ── REVISÃO MANUAL (status em_analise) ── */}
+                  {atleta.status === 'em_analise' && (
+                    <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 mb-4">
+                      <div className="text-[13px] font-bold text-amber-800 mb-3 flex items-center gap-2">
+                        <span className="text-xl">⏳</span> Comprovante aguardando revisão
+                      </div>
+                      {/* Comprovante — busca da pix_receipt via adminService */}
+                      {(atleta as any).comprovante_url && (
+                        <div className="mb-4">
+                          <div className="text-[11px] text-amber-700 font-semibold mb-2 uppercase tracking-wider">Comprovante enviado</div>
+                          <a href={(atleta as any).comprovante_url} target="_blank" rel="noopener noreferrer">
+                            <img
+                              src={(atleta as any).comprovante_url}
+                              alt="Comprovante Pix"
+                              className="w-full rounded-xl border border-amber-200 object-contain max-h-64 bg-white"
+                            />
+                            <div className="text-[11px] text-amber-600 mt-1 text-center">Clique para ver em tamanho completo</div>
+                          </a>
+                        </div>
+                      )}
+                      {!(atleta as any).comprovante_url && (
+                        <div className="bg-amber-100 rounded-xl p-3 text-[12px] text-amber-700 mb-4 text-center">
+                          Imagem do comprovante não disponível (pode ter falhado no upload).
+                          <br />Contate o atleta: <strong>{atleta.email}</strong>
+                        </div>
+                      )}
+                      {(atleta as any).gemini_motivo && (
+                        <div className="bg-white border border-amber-200 rounded-xl px-3 py-2 text-[12px] text-amber-800 mb-4">
+                          <strong>Motivo da IA:</strong> {(atleta as any).gemini_motivo}
+                        </div>
+                      )}
+                      <div className="grid grid-cols-2 gap-3">
+                        <button id="btn-confirmar-manual" onClick={() => handleRevisao('confirmar')}
+                          disabled={revisando}
+                          className="py-3 rounded-xl bg-green-500 text-white font-bold text-[14px] hover:bg-green-600 transition-colors disabled:opacity-50">
+                          {revisando ? '...' : '✅ Confirmar'}
+                        </button>
+                        <button id="btn-rejeitar-manual" onClick={() => handleRevisao('rejeitar')}
+                          disabled={revisando}
+                          className="py-3 rounded-xl bg-red-500 text-white font-bold text-[14px] hover:bg-red-600 transition-colors disabled:opacity-50">
+                          {revisando ? '...' : '❌ Rejeitar'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Ações */}
                   <div className="space-y-2">
                     <button id="btn-editar-inscricao" onClick={iniciarEdicao}
@@ -300,6 +377,7 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
                       </button>
                     )}
                   </div>
+
                 </>
               )}
 

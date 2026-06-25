@@ -152,7 +152,7 @@ export async function verificarComprovantePix(
   categoria: string,
   imagemBase64: string,
   mimeType: string
-): Promise<{ aprovado: boolean; motivo: string; bib_number?: number }> {
+): Promise<{ aprovado: boolean; motivo: string; bib_number?: number; em_analise?: boolean }> {
   const res = await fetch(
     `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-pix-receipt`,
     {

@@ -42,9 +42,10 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
   const [loading, setLoading]   = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [erroEnvio, setErroEnvio] = useState('');
-  const [resultado, setResultado] = useState<ResultadoInscricao | null>(null);
+  const [resultado, setResultado]   = useState<ResultadoInscricao | null>(null);
   const [pixPendente, setPixPendente] = useState<InscricaoPendente | null>(null);
-  const [cpfErro, setCpfErro]   = useState('');
+  const [emAnalise, setEmAnalise]   = useState(false);
+  const [cpfErro, setCpfErro]       = useState('');
   const [idadeErro, setIdadeErro] = useState('');
   const [cupomInfo, setCupomInfo] = useState<{ valido: boolean; desconto: number; id?: string } | null>(null);
   const [validandoCupom, setValidandoCupom] = useState(false);
@@ -169,6 +170,12 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
     setStep(5);
   };
 
+  const handleEmAnalise = () => {
+    setPixPendente(null);
+    setEmAnalise(true);
+    setStep(5);
+  };
+
   if (loading) return (
     <div className="min-h-screen bg-brand-bg flex items-center justify-center">
       <div className="text-brand-muted text-[15px] animate-pulse">Carregando evento...</div>
@@ -237,6 +244,7 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
               prova_label={pixPendente.prova_label}
               categoria={pixPendente.categoria}
               onConfirmado={handlePixConfirmado}
+              onEmAnalise={handleEmAnalise}
             />
           </div>
         )}
@@ -562,8 +570,78 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
           </div>
         )}
 
-        {/* ── STEP 5: Confirmação — Premium Clean ── */}
+        {/* ── STEP 5A: Em Análise (comprovante recebido, aguardando revisão) ── */}
+        {step === 5 && emAnalise && (
+          <div className="mt-6 animate-fade-up">
+            <div className="flex flex-col items-center text-center py-6">
+              <div className="relative mb-5">
+                <div className="w-24 h-24 rounded-full bg-amber-50 border-4 border-amber-300 flex items-center justify-center shadow-brand-lg">
+                  <span className="text-5xl">⏳</span>
+                </div>
+                <div className="absolute -bottom-1 -right-1 w-9 h-9 rounded-full bg-amber-400 border-4 border-white flex items-center justify-center shadow">
+                  <span className="text-white text-[14px] font-black">✉</span>
+                </div>
+              </div>
+              <h2 className="font-display font-extrabold italic uppercase text-[30px] text-brand-ink leading-tight tracking-tight">
+                Comprovante Recebido!
+              </h2>
+              <p className="text-brand-muted mt-2 text-[14px]">Sua inscrição está sendo verificada pela nossa equipe.</p>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-300 rounded-2xl p-5 mb-4 text-center">
+              <div className="text-[13px] font-bold text-amber-800 mb-1">⏱ Verificação em andamento</div>
+              <p className="text-[13px] text-amber-700">
+                Sua inscrição será confirmada em até <strong>24 horas</strong> após verificação manual do comprovante.
+              </p>
+              <p className="text-[12px] text-amber-600 mt-2">
+                Você receberá um email de confirmação assim que for aprovado.
+              </p>
+            </div>
+
+            <div className="bg-brand-lilac border border-brand-lilac-mid rounded-2xl p-5 mb-4 text-center">
+              <p className="text-[13px] text-brand-muted mb-1">Email de aviso enviado para</p>
+              <p className="font-bold text-brand-purple-dark text-[15px] break-all">{f.email}</p>
+              <p className="text-[12px] text-brand-muted mt-2">Verifique sua caixa de entrada e o spam.</p>
+            </div>
+
+            <div className="bg-white border border-brand-lilac-mid rounded-2xl p-5 mb-4 text-left">
+              <div className="text-[11px] font-bold uppercase tracking-widest text-brand-muted mb-3">Sua inscrição</div>
+              <div className="space-y-2 text-[13px]">
+                <div className="flex justify-between">
+                  <span className="text-brand-muted">Atleta</span>
+                  <span className="font-semibold text-brand-ink">{f.nome}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-brand-muted">Prova</span>
+                  <span className="font-semibold text-brand-ink">Prova {f.dist === '5km' ? '5 km' : f.dist === '10km' ? '10 km' : f.dist || '—'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-brand-muted">Data</span>
+                  <span className="font-semibold text-brand-ink">11/10/2026 — 07h00</span>
+                </div>
+                <div className="flex justify-between border-t border-brand-lilac-mid pt-2 mt-2">
+                  <span className="text-brand-muted">Status</span>
+                  <span className="font-bold text-amber-600">⏳ Aguardando verificação</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="text-center text-[12px] text-brand-muted mb-6">
+              Dúvidas?{' '}
+              <a href="mailto:inscricoes@inorun.com.br" className="text-brand-purple font-semibold underline">
+                inscricoes@inorun.com.br
+              </a>
+            </div>
+
+            <button id="btn-voltar-site-analise" onClick={onDone} className="btn-primary w-full text-[18px] py-4">
+              Voltar ao site
+            </button>
+          </div>
+        )}
+
+        {/* ── STEP 5B: Confirmação — Premium Clean ── */}
         {step === 5 && resultado && (
+
           <div className="mt-6 animate-fade-up">
 
             {/* Ícone principal animado */}

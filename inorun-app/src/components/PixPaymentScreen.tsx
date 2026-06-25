@@ -1,5 +1,5 @@
-// src/components/PixPaymentScreen.tsx
-// Tela de pagamento Pix — chave CNPJ, instrucoes, upload e verificacao Gemini
+﻿// src/components/PixPaymentScreen.tsx
+// Tela Pix: chave CNPJ + upload + duplo caminho (aprovado / em_analise)
 // Beneficiaria: ANA CRISTINA CORREA GOMES — CNPJ: 51.950.403/0001-32
 
 import { useState, useRef } from "react";
@@ -20,6 +20,7 @@ interface Props {
   prova_label: string;
   categoria: string;
   onConfirmado: (resultado: ResultadoInscricao) => void;
+  onEmAnalise: () => void;
 }
 
 function fmt(c: number) {
@@ -28,7 +29,8 @@ function fmt(c: number) {
 
 export default function PixPaymentScreen({
   registration_id, valor_total, valor_inscricao, taxa,
-  atleta_nome, atleta_email, prova_label, categoria, onConfirmado,
+  atleta_nome, atleta_email, prova_label, categoria,
+  onConfirmado, onEmAnalise,
 }: Props) {
   const [copiado, setCopiado]     = useState(false);
   const [arquivo, setArquivo]     = useState<File | null>(null);
@@ -47,14 +49,13 @@ export default function PixPaymentScreen({
   const handleArquivo = (file: File) => {
     if (file.size > 5 * 1024 * 1024) { setErro("Arquivo muito grande. Maximo 5 MB."); return; }
     if (!["image/jpeg","image/png","image/webp"].includes(file.type)) {
-      setErro("Formato invalido. Use apenas JPG, PNG ou WEBP (foto ou print do comprovante). PDFs nao sao aceitos."); return;
+      setErro("Formato invalido. Use JPG, PNG ou WEBP (print do comprovante). PDFs nao sao aceitos."); return;
     }
     setErro(""); setRejeitado(""); setArquivo(file);
     const reader = new FileReader();
     reader.onload = e => setPreview(e.target?.result as string);
     reader.readAsDataURL(file);
   };
-
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -76,25 +77,30 @@ export default function PixPaymentScreen({
         registration_id, valor_total, atleta_email, atleta_nome,
         prova_label, categoria, base64, arquivo.type
       );
+
       if (resultado.aprovado && resultado.bib_number) {
+        // Gemini aprovou → tela de confirmação completa
         onConfirmado({
           registration_id, bib_number: resultado.bib_number, categoria,
-          atleta_nome, prova_label, valor_centavos: valor_total, metodo: "pix", status: "confirmado",
+          atleta_nome, atleta_email, prova_label, valor_centavos: valor_total, metodo: "pix", status: "confirmado",
         });
+      } else if (resultado.em_analise) {
+        // Gemini reprovou mas comprovante foi salvo → aguarda revisão manual
+        onEmAnalise();
       } else {
+        // Erro claro (sem salvar) — pede correção
         setRejeitado(resultado.motivo || "Comprovante nao aprovado. Verifique os dados e tente novamente.");
       }
     } catch (e: unknown) {
-      // Tenta extrair motivo de resposta JSON cru (ex: {"aprovado":false,"motivo":"..."})
       const raw = e instanceof Error ? e.message : "";
       try {
         const match = raw.match(/\{.*\}/);
         if (match) {
           const parsed = JSON.parse(match[0]);
+          if (parsed.em_analise) { onEmAnalise(); return; }
           if (parsed.motivo) { setRejeitado(parsed.motivo); return; }
         }
       } catch { /* nao e JSON */ }
-      // Erro de rede ou timeout
       setErro("Nao foi possivel conectar ao servidor. Verifique sua internet e tente novamente.");
     } finally { setLoading(false); }
   };
@@ -158,7 +164,7 @@ export default function PixPaymentScreen({
           onClick={() => inputRef.current?.click()}
           className="border-2 border-dashed border-brand-lilac-mid rounded-2xl p-6 text-center cursor-pointer hover:border-brand-purple transition-colors group"
         >
-          {preview && preview !== "pdf" ? (
+          {preview ? (
             <img src={preview} alt="Comprovante" className="max-h-52 mx-auto rounded-xl object-contain" />
           ) : (
             <div className="text-brand-muted group-hover:text-brand-purple transition-colors">
@@ -179,7 +185,7 @@ export default function PixPaymentScreen({
           onChange={e => { const f = e.target.files?.[0]; if (f) handleArquivo(f); }} />
       </div>
 
-      {/* Mensagem de ERRO TECNICO (rede, timeout) */}
+      {/* Erro tecnico */}
       {erro && (
         <div className="bg-red-50 border border-red-300 rounded-2xl p-4 text-[13px]">
           <div className="font-bold text-red-700 mb-1">Problema de conexao</div>
@@ -187,16 +193,16 @@ export default function PixPaymentScreen({
           <div className="bg-white border border-red-200 rounded-xl p-3 text-[12px] text-red-700">
             <strong>Precisa de ajuda?</strong> Entre em contato:<br />
             <a href="mailto:inscricoes@inorun.com.br" className="underline font-semibold">inscricoes@inorun.com.br</a>
-            {" "}ou informe o ID da sua inscricao: <span className="font-mono bg-red-100 px-1 rounded">{registration_id.slice(0,8)}...</span>
+            {" "}ou informe o ID: <span className="font-mono bg-red-100 px-1 rounded">{registration_id.slice(0,8)}...</span>
           </div>
         </div>
       )}
 
-      {/* Mensagem de COMPROVANTE NAO APROVADO */}
+      {/* Comprovante com problema claro (pede reenvio) */}
       {rejeitado && (
         <div className="bg-orange-50 border border-orange-300 rounded-2xl p-4 text-[13px]">
           <div className="flex items-center gap-2 font-bold text-orange-800 mb-2">
-            <span className="text-xl">⚠️</span> Comprovante nao aprovado pela analise automatica
+            <span className="text-xl">⚠️</span> Comprovante com problema
           </div>
           <p className="text-orange-700 mb-3"><strong>Motivo:</strong> {rejeitado}</p>
           <div className="space-y-1 text-[12px] text-orange-700 mb-3">
@@ -205,16 +211,10 @@ export default function PixPaymentScreen({
               <li>O valor e exatamente <strong>{fmt(valor_total)}</strong></li>
               <li>O beneficiario e <strong>ANA CRISTINA CORREA GOMES</strong></li>
               <li>O status do Pix e <strong>Concluido</strong> (nao pendente)</li>
-              <li>A imagem esta ntida e legivel (evite PDF, prefira foto JPG)</li>
+              <li>A imagem esta ntida (foto JPG do print da tela)</li>
             </ul>
           </div>
-          <div className="bg-white border border-orange-200 rounded-xl p-3 text-[12px] text-orange-800">
-            <strong>Ainda com problemas?</strong> Envie o comprovante diretamente:<br />
-            <a href="mailto:inscricoes@inorun.com.br" className="underline font-semibold text-orange-700">
-              inscricoes@inorun.com.br
-            </a>
-            {" "}— inclua seu nome e CPF.
-          </div>
+          <p className="text-[12px] text-orange-700">Corrija e envie novamente acima, ou contate: <a href="mailto:inscricoes@inorun.com.br" className="underline font-semibold">inscricoes@inorun.com.br</a></p>
         </div>
       )}
 
@@ -230,25 +230,6 @@ export default function PixPaymentScreen({
           Nossa IA esta verificando seu comprovante. Aguarde alguns segundos...
         </p>
       )}
-
-      {/* ── BOTAO DE TESTE (remover antes da producao) ── */}
-      <button
-        id="btn-simular-aprovacao"
-        onClick={() => onConfirmado({
-          registration_id,
-          bib_number: 999,
-          categoria,
-          atleta_nome,
-          prova_label,
-          valor_centavos: valor_total,
-          metodo: "pix",
-          status: "confirmado",
-        })}
-        className="w-full py-2 rounded-xl text-[12px] font-bold text-brand-muted border border-dashed border-brand-lilac-mid hover:border-brand-purple hover:text-brand-purple transition-all"
-      >
-        🧪 Simular aprovacao (somente para teste)
-      </button>
-
     </div>
   );
 }

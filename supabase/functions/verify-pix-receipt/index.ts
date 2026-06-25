@@ -1,19 +1,18 @@
-// supabase/functions/verify-pix-receipt/index.ts
-// Edge Function: verifica comprovante Pix com Gemini Vision e envia email via Resend
-// Secrets necessarios no Supabase Dashboard:
-//   GEMINI_API_KEY  — chave do Google AI Studio
-//   RESEND_API_KEY  — chave do Resend
+﻿// supabase/functions/verify-pix-receipt/index.ts
+// Edge Function: verifica comprovante Pix com Gemini Vision
+// Duplo caminho: aprovado → confirma; reprovado → em_analise + email 1
+// Secrets: GEMINI_API_KEY, RESEND_API_KEY
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const GEMINI_API_KEY  = Deno.env.get("GEMINI_API_KEY")!;
-const RESEND_API_KEY  = Deno.env.get("RESEND_API_KEY")!;
-const SUPABASE_URL    = Deno.env.get("SUPABASE_URL")!;
+const GEMINI_API_KEY   = Deno.env.get("GEMINI_API_KEY")!;
+const RESEND_API_KEY   = Deno.env.get("RESEND_API_KEY")!;
+const SUPABASE_URL     = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const VALOR_ESPERADO_DISPLAY = (centavos: number) =>
-  (centavos / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const fmt = (c: number) =>
+  (c / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -25,220 +24,224 @@ serve(async (req) => {
 
   try {
     const {
-      registration_id,
-      valor_centavos,
-      atleta_email,
-      atleta_nome,
-      prova_label,
-      categoria,
-      imagem_base64,
-      mime_type,
+      registration_id, valor_centavos, atleta_email, atleta_nome,
+      prova_label, categoria, imagem_base64, mime_type,
     } = await req.json();
 
     if (!registration_id || !imagem_base64) {
-      return jsonResponse({ aprovado: false, motivo: "Dados incompletos." }, 400);
+      return json({ aprovado: false, motivo: "Dados incompletos." }, 400);
     }
 
-    // ══════════════════════════════════════════════════════
-    // ⚠️  MODO TESTE — REMOVER ANTES DE IR PARA PRODUCAO
-    // Bypassa o Gemini e aprova qualquer comprovante
-    // ══════════════════════════════════════════════════════
-    const MODO_TESTE = true; // mudar para false para reativar Gemini
-    let analise = { aprovado: true, motivo: "Comprovante aprovado (modo teste)!" };
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE);
 
-    if (!MODO_TESTE) {
-    // ── 1. ANALISAR COMPROVANTE COM GEMINI VISION ──────────────────────────
-    const valorDisplay = VALOR_ESPERADO_DISPLAY(valor_centavos);
+    // ── 1. SALVAR COMPROVANTE NO STORAGE (sempre, antes da análise) ──────
+    let comprovante_url: string | null = null;
+    try {
+      const ext = mime_type?.includes("png") ? "png" : mime_type?.includes("webp") ? "webp" : "jpg";
+      const path = `${registration_id}/comprovante_${Date.now()}.${ext}`;
+      const bytes = Uint8Array.from(atob(imagem_base64), c => c.charCodeAt(0));
+      const { error: upErr } = await supabase.storage
+        .from("comprovantes")
+        .upload(path, bytes, { contentType: mime_type || "image/jpeg", upsert: true });
+      if (!upErr) {
+        const { data: urlData } = supabase.storage.from("comprovantes").getPublicUrl(path);
+        comprovante_url = urlData?.publicUrl ?? null;
+      } else {
+        console.error("Storage upload error:", upErr);
+      }
+    } catch (e) {
+      console.error("Storage error:", e);
+    }
+
+    // ── 2. ANALISAR COM GEMINI VISION ────────────────────────────────────
+    const valorDisplay = fmt(valor_centavos);
     const prompt = `
-Voce e um sistema de verificacao de comprovantes Pix para o evento esportivo INO RUN 2026.
+Voce e um sistema de verificacao de comprovantes Pix para o evento INO RUN 2026.
 
-Analise esta imagem e responda em JSON com o seguinte formato:
+Analise a imagem e responda SOMENTE em JSON:
 {
   "aprovado": true|false,
-  "motivo": "explicacao em portugues (max 120 chars)",
-  "valor_identificado": "valor em reais que aparece no comprovante ou null",
+  "motivo": "explicacao curta em portugues (max 120 chars)",
+  "valor_identificado": "valor no comprovante ou null",
   "tipo_transferencia": "pix|ted|doc|outro|nao_identificado"
 }
 
-Regras de aprovacao (TODAS devem ser satisfeitas):
-1. A imagem deve ser um comprovante de pagamento Pix real (nao simulacao, nao print de tela sem dados)
-2. O valor pago deve ser EXATAMENTE R$ ${valorDisplay} (tolerancia de R$ 0,01 para arredondamento)
-3. O status deve ser "Concluido", "Pago", "Aprovado" ou equivalente — NAO pendente ou agendado
-4. O beneficiario pode ser "ANA CRISTINA CORREA GOMES" ou CNPJ 51.950.403/0001-32
+Regras (TODAS devem ser satisfeitas para aprovado=true):
+1. Imagem e comprovante de Pix real (nao simulacao)
+2. Valor EXATAMENTE ${valorDisplay} (tolerancia R$0,01)
+3. Status: "Concluido", "Pago" ou "Aprovado" (nao pendente)
+4. Beneficiario: "ANA CRISTINA CORREA GOMES" ou CNPJ 51.950.403/0001-32
 
-Se qualquer regra for violada, retorne aprovado=false com o motivo especifico.
-Seja objetivo. Nao aprove comprovantes duvidosos ou parcialmente visiveis.
+Se qualquer regra falhar, aprovado=false com motivo especifico.
 `.trim();
 
-    const geminiResp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
+    let analise = { aprovado: false, motivo: "Nao foi possivel analisar. Comprovante enviado para revisao manual." };
+
+    try {
+      const geminiResp = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [
               { text: prompt },
               { inline_data: { mime_type: mime_type || "image/jpeg", data: imagem_base64 } },
-            ],
-          }],
-          generationConfig: {
-            responseMimeType: "application/json",
-            temperature: 0.1,
-            maxOutputTokens: 256,
-          },
-        }),
+            ]}],
+            generationConfig: { responseMimeType: "application/json", temperature: 0.1, maxOutputTokens: 256 },
+          }),
+        }
+      );
+      if (geminiResp.ok) {
+        const gd = await geminiResp.json();
+        const rawText = gd.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
+        analise = JSON.parse(rawText);
       }
-    );
-
-    if (!geminiResp.ok) {
-      const gemErr = await geminiResp.text();
-      console.error("Gemini error:", gemErr);
-      return jsonResponse({ aprovado: false, motivo: "Nao foi possivel analisar a imagem. Envie uma foto clara do comprovante em JPG ou PNG." }, 200);
+    } catch (e) {
+      console.error("Gemini error:", e);
     }
 
-    const geminiData = await geminiResp.json();
-    const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
-    try {
-      analise = JSON.parse(rawText);
-    } catch {
-      analise = { aprovado: false, motivo: "Imagem nao reconhecida. Envie uma foto clara do comprovante Pix em JPG ou PNG." };
-    }
-    } // fim if (!MODO_TESTE)
-
-    // ── 2. SE REPROVADO: retorna motivo ────────────────────────────────────
-    if (!analise.aprovado) {
-      return jsonResponse({ aprovado: false, motivo: analise.motivo }, 200);
-    }
-
-
-    // ── 3. SE APROVADO: confirma inscricao no banco ────────────────────────
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE);
-
-    const { data: confirmacao, error: confErr } = await supabase
-      .rpc("confirmar_inscricao_pix", { p_registration_id: registration_id });
-
-    if (confErr || confirmacao?.error) {
-      console.error("Confirm error:", confErr || confirmacao?.error);
-      // Erro real de banco — retorna 200 com mensagem amigavel
-      return jsonResponse({ aprovado: false, motivo: "Erro interno ao confirmar inscricao. Entre em contato: inscricoes@inorun.com.br" }, 200);
-    }
-
-    const bib_number = confirmacao.bib_number as number;
-
-    // Salva analise do Gemini
-    await supabase.from("pix_receipt").insert({
+    // Salva análise na tabela pix_receipt
+    await supabase.from("pix_receipt").upsert({
       registration_id,
-      gemini_resultado: "aprovado",
+      gemini_resultado: analise.aprovado ? "aprovado" : "reprovado",
       gemini_motivo:    analise.motivo,
       gemini_raw:       analise,
-    });
+      comprovante_url,
+      comprovante_mime: mime_type,
+      em_analise:       !analise.aprovado,
+    }, { onConflict: "registration_id" });
 
-    // ── 4. ENVIAR EMAIL VIA RESEND ─────────────────────────────────────────
-    const emailHtml = buildEmailHtml(atleta_nome, bib_number, prova_label, categoria, valorDisplay);
+    // ── 3A. GEMINI APROVOU → confirma imediatamente ──────────────────────
+    if (analise.aprovado) {
+      const { data: conf, error: confErr } = await supabase
+        .rpc("confirmar_inscricao_pix", { p_registration_id: registration_id });
 
-    const resendResp = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${RESEND_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: "Inscricoes INO RUN <inscricoes@inorun.com.br>",
-        to: [atleta_email],
-        subject: `#${bib_number} confirmado! Sua inscricao INO RUN 2026 esta garantida`,
-        html: emailHtml,
-      }),
-    });
+      if (confErr || conf?.error) {
+        console.error("Confirm error:", confErr || conf?.error);
+        return json({ aprovado: false, em_analise: false, motivo: "Erro ao confirmar. Contate: inscricoes@inorun.com.br" }, 200);
+      }
 
-    if (!resendResp.ok) {
-      const resErr = await resendResp.text();
-      console.error("Resend error:", resErr);
-      // Email falhou mas inscricao ja foi confirmada — nao retornar erro
+      const bib_number = conf.bib_number as number;
+
+      // Email de confirmação
+      await sendEmail(atleta_email,
+        `#${bib_number} confirmado! Sua inscrição INO RUN 2026 está garantida`,
+        emailConfirmado(atleta_nome, bib_number, prova_label, categoria, valorDisplay)
+      );
+
+      return json({ aprovado: true, em_analise: false, bib_number, motivo: "Comprovante aprovado!" }, 200);
     }
 
-    return jsonResponse({ aprovado: true, bib_number, motivo: "Comprovante aprovado!" }, 200);
+    // ── 3B. GEMINI REPROVOU → status em_analise ──────────────────────────
+    await supabase.from("registration")
+      .update({ status: "em_analise", updated_at: new Date().toISOString() })
+      .eq("id", registration_id);
+
+    // Email 1 — "aguardando verificação"
+    await sendEmail(atleta_email,
+      "Comprovante recebido — INO RUN 2026 aguardando verificação",
+      emailEmAnalise(atleta_nome, prova_label, valorDisplay)
+    );
+
+    return json({
+      aprovado: false,
+      em_analise: true,
+      motivo: analise.motivo,
+    }, 200);
 
   } catch (e) {
     console.error("Unhandled error:", e);
-    return jsonResponse({ aprovado: false, motivo: "Erro interno. Tente novamente." }, 500);
+    return json({ aprovado: false, em_analise: false, motivo: "Erro interno. Contate: inscricoes@inorun.com.br" }, 500);
   }
 });
 
-function jsonResponse(body: unknown, status = 200) {
+function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...CORS, "Content-Type": "application/json" },
   });
 }
 
-function buildEmailHtml(nome: string, bib: number, prova: string, categoria: string, valor: string): string {
-  return `
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f5f3ff;font-family:'Helvetica Neue',Arial,sans-serif">
-  <div style="max-width:560px;margin:32px auto;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(109,40,217,.12)">
-    
-    <!-- Header -->
-    <div style="background:linear-gradient(135deg,#7c3aed,#6d28d9);padding:40px 32px;text-align:center">
-      <div style="font-size:13px;font-weight:700;letter-spacing:3px;color:rgba(255,255,255,.7);text-transform:uppercase;margin-bottom:8px">
-        CORRIDA INOLIVE · PARAOPEBA – MG
-      </div>
-      <div style="font-size:36px;font-weight:900;font-style:italic;color:#fff;letter-spacing:-1px;text-transform:uppercase">
-        INO RUN 2026
-      </div>
-      <div style="font-size:13px;color:rgba(255,255,255,.75);margin-top:6px">11 de outubro de 2026</div>
-    </div>
+async function sendEmail(to: string, subject: string, html: string) {
+  try {
+    const r = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: "Inscricoes INO RUN <inscricoes@inorun.com.br>", to: [to], subject, html }),
+    });
+    if (!r.ok) console.error("Resend error:", await r.text());
+  } catch (e) { console.error("Email error:", e); }
+}
 
-    <!-- Numero de peito destaque -->
-    <div style="background:#fdf4ff;border-bottom:2px solid #ede9fe;padding:32px;text-align:center">
-      <div style="font-size:13px;color:#7c3aed;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">
-        SEU NUMERO DE PEITO
-      </div>
-      <div style="font-size:64px;font-weight:900;font-style:italic;color:#6d28d9;line-height:1;letter-spacing:-2px">
-        #${bib}
-      </div>
-      <div style="font-size:13px;color:#8b5cf6;margin-top:8px">Guarde este numero — e o seu!</div>
-    </div>
+// ── Templates de email ────────────────────────────────────────────────────────
 
-    <!-- Detalhes -->
-    <div style="padding:32px">
-      <p style="font-size:16px;color:#1e1b4b;margin:0 0 24px">
-        Ola, <strong>${nome}</strong>! Sua inscricao foi <strong style="color:#16a34a">confirmada</strong>. Nos vemos em outubro!
-      </p>
-
-      <table style="width:100%;border-collapse:collapse;font-size:14px">
-        ${row("Atleta", nome)}
-        ${row("Prova", prova)}
-        ${row("Categoria", categoria)}
-        ${row("Numero de peito", `#${bib}`)}
-        ${row("Valor pago", valor)}
-        ${row("Metodo", "Pix")}
-        ${row("Data da prova", "11/10/2026 — 07h00")}
-        ${row("Local", "Paraopeba – MG")}
-      </table>
-
-      <div style="margin-top:28px;padding:16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;font-size:13px;color:#166534">
-        Um email de confirmacao foi enviado para o endereco informado no cadastro.
-        Em caso de duvidas: <a href="mailto:inscricoes@inorun.com.br" style="color:#16a34a">inscricoes@inorun.com.br</a>
-      </div>
-    </div>
-
-    <!-- Footer -->
-    <div style="background:#fdf4ff;border-top:1px solid #ede9fe;padding:20px 32px;text-align:center;font-size:12px;color:#8b5cf6">
-      INO RUN 2026 — Corrida InoLive &copy; Paraopeba – MG<br>
-      <a href="https://inorun.com.br" style="color:#7c3aed">inorun.com.br</a>
+function emailConfirmado(nome: string, bib: number, prova: string, categoria: string, valor: string): string {
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"></head>
+<body style="margin:0;background:#f5f3ff;font-family:'Helvetica Neue',Arial,sans-serif">
+<div style="max-width:560px;margin:32px auto;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(109,40,217,.12)">
+  <div style="background:linear-gradient(135deg,#7c3aed,#6d28d9);padding:40px 32px;text-align:center">
+    <div style="font-size:13px;font-weight:700;letter-spacing:3px;color:rgba(255,255,255,.7);text-transform:uppercase;margin-bottom:8px">CORRIDA INOLIVE · PARAOPEBA – MG</div>
+    <div style="font-size:36px;font-weight:900;font-style:italic;color:#fff;text-transform:uppercase">INO RUN 2026</div>
+    <div style="font-size:13px;color:rgba(255,255,255,.75);margin-top:6px">11 de outubro de 2026</div>
+  </div>
+  <div style="padding:32px">
+    <p style="font-size:16px;color:#1e1b4b;margin:0 0 24px">
+      Olá, <strong>${nome}</strong>! Sua inscrição foi <strong style="color:#16a34a">confirmada</strong>. Nos vemos em outubro! 🎉
+    </p>
+    <table style="width:100%;border-collapse:collapse;font-size:14px">
+      ${row("Atleta", nome)}${row("Prova", prova)}${row("Categoria", categoria)}
+      ${row("Número de peito", `#${bib}`)}${row("Valor pago", valor)}${row("Método", "Pix")}
+      ${row("Data", "11/10/2026 — 07h00")}${row("Local", "Paraopeba – MG")}
+    </table>
+    <div style="margin-top:24px;padding:14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;font-size:13px;color:#166534">
+      Dúvidas: <a href="mailto:inscricoes@inorun.com.br" style="color:#16a34a">inscricoes@inorun.com.br</a>
     </div>
   </div>
-</body>
-</html>`;
+  <div style="background:#fdf4ff;border-top:1px solid #ede9fe;padding:16px 32px;text-align:center;font-size:12px;color:#8b5cf6">
+    INO RUN 2026 — <a href="https://inorun.com.br" style="color:#7c3aed">inorun.com.br</a>
+  </div>
+</div></body></html>`;
+}
+
+function emailEmAnalise(nome: string, prova: string, valor: string): string {
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"></head>
+<body style="margin:0;background:#f5f3ff;font-family:'Helvetica Neue',Arial,sans-serif">
+<div style="max-width:560px;margin:32px auto;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(109,40,217,.12)">
+  <div style="background:linear-gradient(135deg,#7c3aed,#6d28d9);padding:40px 32px;text-align:center">
+    <div style="font-size:13px;font-weight:700;letter-spacing:3px;color:rgba(255,255,255,.7);text-transform:uppercase;margin-bottom:8px">CORRIDA INOLIVE · PARAOPEBA – MG</div>
+    <div style="font-size:36px;font-weight:900;font-style:italic;color:#fff;text-transform:uppercase">INO RUN 2026</div>
+  </div>
+  <div style="padding:32px">
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="font-size:48px">⏳</div>
+      <h2 style="font-size:24px;font-weight:900;font-style:italic;color:#7c3aed;text-transform:uppercase;margin:8px 0">Comprovante Recebido!</h2>
+    </div>
+    <p style="font-size:15px;color:#1e1b4b;margin:0 0 16px">
+      Olá, <strong>${nome}</strong>! Recebemos seu comprovante de pagamento para a inscrição na <strong>${prova}</strong>.
+    </p>
+    <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:12px;padding:16px;font-size:13px;color:#92400e;margin-bottom:16px">
+      <strong>⚠️ Verificação em andamento</strong><br>
+      Nossa equipe irá analisar seu comprovante em até <strong>24 horas</strong>. 
+      Você receberá um novo email com a confirmação da sua inscrição.
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:14px">
+      ${row("Atleta", nome)}${row("Prova", prova)}
+      ${row("Valor", valor)}${row("Data da prova", "11/10/2026 — 07h00")}
+    </table>
+    <div style="margin-top:24px;padding:14px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:12px;font-size:13px;color:#075985">
+      Dúvidas? <a href="mailto:inscricoes@inorun.com.br" style="color:#0284c7">inscricoes@inorun.com.br</a>
+    </div>
+  </div>
+  <div style="background:#fdf4ff;border-top:1px solid #ede9fe;padding:16px 32px;text-align:center;font-size:12px;color:#8b5cf6">
+    INO RUN 2026 — <a href="https://inorun.com.br" style="color:#7c3aed">inorun.com.br</a>
+  </div>
+</div></body></html>`;
 }
 
 function row(label: string, value: string): string {
-  return `
-  <tr>
-    <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;color:#6b7280;font-weight:500;width:45%">${label}</td>
-    <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;color:#1e1b4b;font-weight:700;text-align:right">${value}</td>
+  return `<tr>
+    <td style="padding:9px 0;border-bottom:1px solid #f3f4f6;color:#6b7280;font-weight:500;width:45%">${label}</td>
+    <td style="padding:9px 0;border-bottom:1px solid #f3f4f6;color:#1e1b4b;font-weight:700;text-align:right">${value}</td>
   </tr>`;
 }
