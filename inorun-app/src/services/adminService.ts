@@ -105,31 +105,7 @@ export async function getInscritos(): Promise<InscritoRow[]> {
     .order('created_at', { ascending: false });
 
   if (error) { console.error('getInscritos:', error.message); return []; }
-  const rows = (data ?? []) as InscritoRow[];
-
-  // Enriquece inscrições em_analise com dados do comprovante
-  const emAnalise = rows.filter(r => r.status === 'em_analise');
-  if (emAnalise.length > 0) {
-    const ids = emAnalise.map(r => r.registration_id);
-    const { data: receipts } = await supabase
-      .from('pix_receipt')
-      .select('registration_id, comprovante_url, comprovante_mime, gemini_motivo, gemini_resultado')
-      .in('registration_id', ids);
-    if (receipts) {
-      const map = Object.fromEntries(receipts.map((r: any) => [r.registration_id, r]));
-      rows.forEach(r => {
-        if (r.status === 'em_analise' && map[r.registration_id]) {
-          const rec = map[r.registration_id];
-          r.comprovante_url    = rec.comprovante_url;
-          r.comprovante_mime   = rec.comprovante_mime;
-          r.gemini_motivo      = rec.gemini_motivo;
-          r.gemini_resultado   = rec.gemini_resultado;
-        }
-      });
-    }
-  }
-
-  return rows;
+  return (data ?? []) as InscritoRow[];
 }
 
 export function calcularMetricas(inscritos: InscritoRow[]): MetricasAdmin {

@@ -68,7 +68,7 @@ export default function PixPaymentScreen({
     if (!arquivo) { setErro("Selecione o comprovante antes de enviar."); return; }
     setLoading(true); setErro(""); setRejeitado("");
     try {
-      // ── PASSO 1: Upload direto do browser para o Storage ──────────────
+      // ── 1. Upload direto para Storage ────────────────────────────────────
       const ext  = arquivo.type.includes("png") ? "png" : arquivo.type.includes("webp") ? "webp" : "jpg";
       const path = `${registration_id}/comprovante_${Date.now()}.${ext}`;
       let comprovante_url: string | null = null;
@@ -80,13 +80,21 @@ export default function PixPaymentScreen({
       if (!uploadErr) {
         const { data: urlData } = supabase.storage.from("comprovantes").getPublicUrl(path);
         comprovante_url = urlData?.publicUrl ?? null;
-        console.log("Storage upload OK:", comprovante_url);
       } else {
-        // Se upload falhar, loga mas continua (Edge Function tenta salvar também)
         console.warn("Storage upload falhou:", uploadErr.message);
+        // Não bloqueia — continua sem imagem (admin pode confirmar manualmente)
       }
 
-      // ── PASSO 2: Converte para base64 para o Gemini ──────────────────
+      // ── 2. Salva URL via RPC (SECURITY DEFINER — bypassa RLS) ───────────
+      if (comprovante_url) {
+        const { error: rpcErr } = await supabase.rpc("salvar_comprovante_url", {
+          p_registration_id: registration_id,
+          p_url: comprovante_url,
+        });
+        if (rpcErr) console.warn("RPC salvar_comprovante_url falhou:", rpcErr.message);
+      }
+
+      // ── 3. Base64 para Gemini (Edge Function analisa + atualiza status) ──
       const reader = new FileReader();
       const base64 = await new Promise<string>((resolve, reject) => {
         reader.onload = () => resolve((reader.result as string).split(",")[1]);
@@ -94,8 +102,6 @@ export default function PixPaymentScreen({
         reader.readAsDataURL(arquivo);
       });
 
-      // ── PASSO 3: Edge Function (service_role salva pix_receipt + Gemini) ─
-      // A URL do comprovante é enviada para a Edge Function que salva no DB
       const resultado = await verificarComprovantePix(
         registration_id, valor_total, atleta_email, atleta_nome,
         prova_label, categoria, base64, arquivo.type, comprovante_url
