@@ -1,4 +1,4 @@
-﻿// src/services/inscricaoService.ts
+// src/services/inscricaoService.ts
 // Layer 2 — Navigation: orquestra o fluxo de inscricao
 // v3 — Fluxo Pix com verificacao por Gemini Vision + email Resend
 
@@ -44,6 +44,7 @@ export interface ResultadoInscricao {
   bib_number: number;
   categoria: string;
   atleta_nome: string;
+  atleta_email?: string;
   prova_label: string;
   valor_centavos: number;
   metodo: string;
