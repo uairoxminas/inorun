@@ -44,6 +44,7 @@ export default function PublicSite({ onRegister, onAdmin, totalInscritos, onEven
   const [openFaq, setOpenFaq]   = useState<number | null>(null);
   const [evento, setEvento]     = useState<EventoData | null>(null);
   const [loadingEvento, setLoadingEvento] = useState(true);
+  const [menuAberto, setMenuAberto]       = useState(false);
 
   // Estados para Regulamento e Resultados
   const [modalRegulamentoAberto, setModalRegulamentoAberto] = useState(false);
@@ -131,22 +132,81 @@ export default function PublicSite({ onRegister, onAdmin, totalInscritos, onEven
     <div className="bg-brand-bg text-brand-ink font-sans">
 
       {/* ── NAV ── */}
-      <nav className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-brand-lilac-mid">
+      <nav className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-brand-lilac-mid">
         <div className="section-wrap flex items-center justify-between py-3">
           <Logo height={32} />
+
+          {/* Desktop links */}
           <div className="hidden md:flex items-center gap-6 text-sm text-brand-muted">
             <a href="#provas"   className="hover:text-brand-purple transition-colors">Provas</a>
             <a href="#percurso" className="hover:text-brand-purple transition-colors">Percurso</a>
             <a href="#kit"      className="hover:text-brand-purple transition-colors">Kit</a>
             <a href="#faq"      className="hover:text-brand-purple transition-colors">FAQ</a>
             <button onClick={() => setModalRegulamentoAberto(true)} className="hover:text-brand-purple transition-colors font-medium">Regulamento</button>
-            <button onClick={() => setModalResultadosAberto(true)} className="hover:text-brand-purple transition-colors font-medium">Resultados</button>
+            <button onClick={() => setModalResultadosAberto(true)}  className="hover:text-brand-purple transition-colors font-medium">Resultados</button>
             <button onClick={onAdmin} className="btn-ghost">Painel</button>
           </div>
-          <button id="nav-inscreva-se" onClick={onRegister} className="btn-primary text-sm py-2.5 px-5">
+
+          {/* Mobile direita: hambúrguer + inscreva-se */}
+          <div className="flex items-center gap-2 md:hidden">
+            <button id="nav-inscreva-se-mobile" onClick={onRegister}
+              className="btn-primary text-xs py-2 px-3">
+              Inscreva-se
+            </button>
+            <button id="btn-menu-mobile" onClick={() => setMenuAberto(v => !v)}
+              aria-label="Menu"
+              className="p-2 rounded-xl text-brand-ink hover:bg-brand-lilac transition-colors">
+              {menuAberto ? (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-6 h-6">
+                  <path d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-6 h-6">
+                  <path d="M4 6h16M4 12h16M4 18h16"/>
+                </svg>
+              )}
+            </button>
+          </div>
+
+          {/* Desktop inscreva-se */}
+          <button id="nav-inscreva-se" onClick={onRegister} className="btn-primary text-sm py-2.5 px-5 hidden md:block">
             Inscreva-se
           </button>
         </div>
+
+        {/* Mobile dropdown menu */}
+        {menuAberto && (
+          <div className="md:hidden border-t border-brand-lilac-mid bg-white shadow-lg animate-fade-up">
+            <div className="section-wrap py-4 flex flex-col gap-1">
+              {[
+                { label: 'Provas',    href: '#provas' },
+                { label: 'Percurso', href: '#percurso' },
+                { label: 'Kit',      href: '#kit' },
+                { label: 'FAQ',      href: '#faq' },
+              ].map(item => (
+                <a key={item.label} href={item.href}
+                  onClick={() => setMenuAberto(false)}
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl text-brand-ink font-medium text-[15px] hover:bg-brand-lilac hover:text-brand-purple transition-colors">
+                  {item.label}
+                </a>
+              ))}
+              <button onClick={() => { setMenuAberto(false); setModalRegulamentoAberto(true); }}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl text-brand-ink font-medium text-[15px] hover:bg-brand-lilac hover:text-brand-purple transition-colors text-left w-full">
+                Regulamento
+              </button>
+              <button onClick={() => { setMenuAberto(false); setModalResultadosAberto(true); }}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl text-brand-ink font-medium text-[15px] hover:bg-brand-lilac hover:text-brand-purple transition-colors text-left w-full">
+                Resultados
+              </button>
+              <div className="border-t border-brand-lilac-mid mt-2 pt-3">
+                <button id="btn-menu-mobile-inscrever" onClick={() => { setMenuAberto(false); onRegister(); }}
+                  className="btn-primary w-full py-3 text-[16px]">
+                  🏃 Inscreva-se agora
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* ── HERO ── */}
@@ -158,52 +218,51 @@ export default function PublicSite({ onRegister, onAdmin, totalInscritos, onEven
           <path d="M110 0 C 30 120 190 220 110 340 C 50 440 170 520 90 600 L 0 600 L 0 0 Z" fill="#8417AE" />
         </svg>
 
-        {/* Conteúdo — sem z-index para não criar stacking context isolado */}
-        <div className="section-wrap relative py-14 md:py-20">
+        {/* Conteúdo */}
+        <div className="section-wrap relative py-10 md:py-20">
           <Eyebrow>Corrida InoLive · Paraopeba – MG</Eyebrow>
           <div className="mt-4">
             <img
               src="/logo.png"
               alt="INO RUN 2026"
               style={{
-                width: 'clamp(220px,40vw,540px)',
+                width: 'clamp(180px,50vw,540px)',
                 height: 'auto',
                 display: 'block',
               }}
               className="mb-3"
             />
             <span className="font-display font-bold italic uppercase tracking-[0.04em] text-brand-ink"
-              style={{ fontSize: 'clamp(22px,5vw,40px)' }}>
+              style={{ fontSize: 'clamp(18px,5vw,40px)' }}>
               2026 ·{' '}
               <span className="bg-brand-yellow text-brand-ink px-2.5 py-0.5 rounded-md">11 de outubro</span>
             </span>
           </div>
-          <p className="text-brand-muted max-w-[460px] mt-4 text-base leading-relaxed">
+          <p className="text-brand-muted max-w-[460px] mt-3 text-[14px] md:text-base leading-relaxed">
             5 km e 10 km pelas ruas de Paraopeba. Cronometragem por chip, kit completo,
             medalha finisher e premiação por faixa etária.
           </p>
 
-          {/* Countdown — 1 linha no mobile e desktop */}
-          <div className="mt-8 flex items-end gap-1.5 sm:gap-2.5 flex-nowrap">
+          {/* Countdown */}
+          <div className="mt-6 flex items-end gap-1 sm:gap-2.5 flex-nowrap">
             {([['DIAS', d], ['HORAS', h], ['MIN', m], ['SEG', s]] as [string, number][]).map(([lab, val], i) => (
-              <div key={lab} className="flex items-end gap-1.5 sm:gap-2.5">
+              <div key={lab} className="flex items-end gap-1 sm:gap-2.5">
                 <CountdownBox value={val} label={lab} />
                 {i < 3 && (
                   <span
                     className="text-brand-purple-mid font-bold shrink-0"
-                    style={{ fontSize: 'clamp(22px,5vw,38px)', paddingBottom: 'clamp(18px,4vw,30px)' }}
+                    style={{ fontSize: 'clamp(20px,5vw,38px)', paddingBottom: 'clamp(14px,4vw,30px)' }}
                   >:</span>
                 )}
               </div>
             ))}
           </div>
 
-
-          <div className="mt-10 flex flex-wrap items-center gap-5">
-            <button id="hero-garantir-vaga" onClick={onRegister} className="btn-primary text-xl px-9 py-4">
+          <div className="mt-8 flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-4">
+            <button id="hero-garantir-vaga" onClick={onRegister} className="btn-primary text-[18px] md:text-xl px-9 py-4 w-full sm:w-auto">
               Garantir vaga
             </button>
-            <div className="text-sm text-brand-muted">
+            <div className="text-sm text-brand-muted text-center sm:text-left">
               <span className="font-display font-extrabold text-brand-purple" style={{ fontSize: 22 }}>
                 {inscritos.toLocaleString('pt-BR')}
               </span>{' '}corredores já inscritos
@@ -327,32 +386,29 @@ export default function PublicSite({ onRegister, onAdmin, totalInscritos, onEven
       </section>
 
       {/* ── BANNER FOTO CORREDORES ── */}
-      <section className="relative overflow-hidden" style={{ minHeight: 420 }}>
-        {/* Foto de fundo */}
+      <section className="relative overflow-hidden" style={{ minHeight: 280 }}>
         <img
           src="/foto-corredores.jpg"
           alt="Corredores INO RUN com a camiseta oficial"
           className="absolute inset-0 w-full h-full object-cover object-top"
         />
-        {/* Overlay gradiente roxo */}
-        <div className="absolute inset-0 bg-gradient-to-r from-brand-purple/90 via-brand-purple/60 to-transparent" />
-        {/* Conteúdo */}
-        <div className="relative section-wrap py-16 md:py-24 flex flex-col justify-center" style={{ minHeight: 420 }}>
-          <span className="font-display font-bold tracking-[0.2em] uppercase text-[13px] text-white/70 mb-3">
+        <div className="absolute inset-0 bg-gradient-to-r from-brand-purple/90 via-brand-purple/70 to-transparent" />
+        <div className="relative section-wrap py-12 md:py-24 flex flex-col justify-center" style={{ minHeight: 280 }}>
+          <span className="font-display font-bold tracking-[0.2em] uppercase text-[12px] text-white/70 mb-2">
             Corrida InoLive · Paraopeba – MG
           </span>
           <h2
             className="font-display font-extrabold italic uppercase text-white leading-none"
-            style={{ fontSize: 'clamp(32px,7vw,72px)', maxWidth: 600 }}
+            style={{ fontSize: 'clamp(26px,7vw,72px)', maxWidth: 600 }}
           >
             Uma nova era das corridas na região
           </h2>
-          <p className="text-white/80 mt-4 text-base leading-relaxed max-w-[480px]">
+          <p className="text-white/80 mt-3 text-[14px] leading-relaxed max-w-[480px]">
             Venha fazer parte dessa história e cruzar a linha de chegada com a camiseta que vai marcar sua memória.
           </p>
           <button
             onClick={onRegister}
-            className="mt-8 self-start bg-brand-yellow text-brand-ink font-display font-extrabold italic uppercase px-8 py-4 rounded-2xl text-[18px] hover:scale-105 transition-transform duration-200 shadow-lg"
+            className="mt-6 bg-brand-yellow text-brand-ink font-display font-extrabold italic uppercase px-8 py-3.5 rounded-2xl text-[16px] md:text-[18px] hover:scale-105 transition-transform duration-200 shadow-lg w-full sm:w-auto self-start"
           >
             Garantir minha vaga →
           </button>
@@ -485,14 +541,17 @@ export default function PublicSite({ onRegister, onAdmin, totalInscritos, onEven
 
       {/* ── FOOTER ── */}
       <footer className="bg-white border-t border-brand-lilac-mid">
-        <div className="section-wrap flex flex-wrap items-center justify-between gap-3 py-8 text-[13px] text-brand-muted">
-          <Logo height={24} />
-          <div className="flex items-center gap-4">
-            <button onClick={() => setModalRegulamentoAberto(true)} className="hover:text-brand-purple transition-colors font-medium">Regulamento</button>
-            <button onClick={() => setModalResultadosAberto(true)} className="hover:text-brand-purple transition-colors font-medium">Resultados</button>
+        <div className="section-wrap py-8 text-[13px] text-brand-muted">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-4">
+            <Logo height={24} />
+            <div className="flex items-center gap-4 flex-wrap">
+              <button onClick={() => setModalRegulamentoAberto(true)} className="hover:text-brand-purple transition-colors font-medium">Regulamento</button>
+              <button onClick={() => setModalResultadosAberto(true)} className="hover:text-brand-purple transition-colors font-medium">Resultados</button>
+              <button onClick={onAdmin} className="hover:text-brand-purple transition-colors font-medium">Painel</button>
+            </div>
+            <span className="text-[12px]">Corrida InoLive · Paraopeba – MG · 11/10/2026</span>
+            <span className="text-[12px]">© 2026 INO RUN · Todos os direitos reservados</span>
           </div>
-          <span>Corrida InoLive · Paraopeba – MG · 11/10/2026</span>
-          <span>© 2026 INO RUN · Todos os direitos reservados</span>
         </div>
       </footer>
 
