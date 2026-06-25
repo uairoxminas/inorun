@@ -37,35 +37,40 @@ serve(async (req) => {
     }
 
     const bib_number: number | null = data?.bib_number ?? null;
+    console.log("[admin-confirmar] RPC ok, bib_number:", bib_number);
 
     // 2. Busca dados do atleta para o email
-    const { data: reg } = await supabase
+    const { data: reg, error: regErr } = await supabase
       .from("vw_inscritos")
       .select("nome, email, prova, categoria, preco_centavos")
       .eq("registration_id", registration_id)
       .single();
 
-    if (reg) {
-      const valor = (reg.preco_centavos / 100).toLocaleString("pt-BR", {
-        style: "currency", currency: "BRL",
-      });
-
-      if (acao === "confirmar" && bib_number) {
-        await sendEmail(
-          reg.email,
-          `✅ Inscrição confirmada! INO RUN 2026 — ${reg.prova}`,
-          emailConfirmado(reg.nome, bib_number, reg.prova, reg.categoria, valor)
-        );
-      } else if (acao === "rejeitar") {
-        await sendEmail(
-          reg.email,
-          "⚠️ Comprovante não aprovado — INO RUN 2026",
-          emailRejeitado(reg.nome, reg.prova, valor)
-        );
-      }
+    if (regErr || !reg) {
+      console.error("[admin-confirmar] vw_inscritos falhou:", regErr?.message);
+      return json({ ok: true, bib_number, email_sent: false }, 200);
     }
 
-    return json({ ok: true, bib_number }, 200);
+    const valor = (reg.preco_centavos / 100).toLocaleString("pt-BR", {
+      style: "currency", currency: "BRL",
+    });
+
+    let email_sent = false;
+    if (acao === "confirmar" && bib_number) {
+      email_sent = await sendEmail(
+        reg.email,
+        `✅ Inscrição confirmada! INO RUN 2026 — ${reg.prova}`,
+        emailConfirmado(reg.nome, bib_number, reg.prova, reg.categoria, valor)
+      );
+    } else if (acao === "rejeitar") {
+      email_sent = await sendEmail(
+        reg.email,
+        "⚠️ Comprovante não aprovado — INO RUN 2026",
+        emailRejeitado(reg.nome, reg.prova, valor)
+      );
+    }
+
+    return json({ ok: true, bib_number, email_sent }, 200);
 
   } catch (e) {
     console.error("Unhandled error:", e);
@@ -80,8 +85,9 @@ function json(body: unknown, status = 200) {
   });
 }
 
-async function sendEmail(to: string, subject: string, html: string) {
+async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
   try {
+    console.log("[admin-confirmar] Enviando email para:", to);
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -95,8 +101,17 @@ async function sendEmail(to: string, subject: string, html: string) {
         html,
       }),
     });
-    if (!r.ok) console.error("Resend error:", await r.text());
-  } catch (e) { console.error("Email error:", e); }
+    const body = await r.text();
+    if (!r.ok) {
+      console.error("[admin-confirmar] Resend HTTP", r.status, ":", body);
+      return false;
+    }
+    console.log("[admin-confirmar] Email enviado com sucesso:", body);
+    return true;
+  } catch (e) {
+    console.error("[admin-confirmar] Excecao ao enviar email:", e);
+    return false;
+  }
 }
 
 function row(label: string, value: string): string {
