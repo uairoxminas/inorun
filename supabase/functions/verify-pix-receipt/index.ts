@@ -1,4 +1,4 @@
-﻿// supabase/functions/verify-pix-receipt/index.ts
+// supabase/functions/verify-pix-receipt/index.ts
 // Edge Function: verifica comprovante Pix com Gemini Vision
 // Duplo caminho: aprovado → confirma; reprovado → em_analise + email 1
 // Secrets: GEMINI_API_KEY, RESEND_API_KEY
@@ -135,7 +135,7 @@ Se qualquer regra falhar, aprovado=false com motivo especifico.
 
     // ── 3B. GEMINI REPROVOU → status em_analise ──────────────────────────
     await supabase.from("registration")
-      .update({ status: "em_analise", updated_at: new Date().toISOString() })
+      .update({ status: "em_analise" })
       .eq("id", registration_id);
 
     // Email 1 — "aguardando verificação"
