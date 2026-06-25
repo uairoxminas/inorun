@@ -1,10 +1,6 @@
-// src/services/inscricaoService.ts
-// Layer 2 — Navigation: orquestra o fluxo completo de inscrição
-// Invariantes do gemini.md:
-//   - CPF único por prova (race_id + athlete_id UNIQUE no schema)
-//   - Preço calculado no servidor (lote ativo no momento da inscrição)
-//   - Categoria derivada de sexo + idade na data da prova (+ modalidade v2)
-//   - bib_number gerado APÓS pagamento confirmado (confirmar_pagamento_mock)
+﻿// src/services/inscricaoService.ts
+// Layer 2 — Navigation: orquestra o fluxo de inscricao
+// v3 — Fluxo Pix com verificacao por Gemini Vision + email Resend
 
 import { supabase } from '../lib/supabase';
 import { calcCategoria } from '../lib/calcCategoria';
@@ -14,8 +10,8 @@ import { validaCPF } from '../lib/validaCPF';
 export interface DadosAtleta {
   nome: string;
   cpf: string;
-  nascimento: string; // YYYY-MM-DD
-  sexo?: 'M' | 'F';  // opcional para Kids e Caminhada
+  nascimento: string;
+  sexo?: 'M' | 'F';
   email: string;
   telefone?: string;
   contato_emergencia?: string;
@@ -28,9 +24,19 @@ export interface DadosInscricao {
   modalidade: Modalidade;
   camiseta: 'PP' | 'P' | 'M' | 'G' | 'GG' | 'XG' | '8' | '10' | '12';
   cupom_id?: string;
-  valor_centavos:          number; // preço líquido da inscrição (sem taxa)
-  taxa_plataforma_centavos: number; // R$5,00 fixo = 500 centavos
-  metodo_pagamento: 'pix' | 'cartao';
+  valor_centavos: number;
+  taxa_plataforma_centavos: number;
+  metodo_pagamento: 'pix';
+}
+
+export interface InscricaoPendente {
+  registration_id: string;
+  gateway_ref: string;
+  valor_total: number;
+  categoria: string;
+  atleta_nome: string;
+  atleta_email: string;
+  prova_label: string;
 }
 
 export interface ResultadoInscricao {
@@ -44,32 +50,23 @@ export interface ResultadoInscricao {
   status: 'confirmado';
 }
 
-// ── Passo 1: upsert do atleta via RPC com SECURITY DEFINER ────────────────
-// O role anon NÃO tem SELECT em athlete (dados protegidos por LGPD).
-// A função upsert_atleta roda como SECURITY DEFINER e retorna o id.
 async function upsertAtleta(dados: DadosAtleta): Promise<string> {
-  if (!validaCPF(dados.cpf)) throw new Error('CPF inválido');
-
+  if (!validaCPF(dados.cpf)) throw new Error('CPF invalido');
   const cpfLimpo = dados.cpf.replace(/\D/g, '');
-
   const { data, error } = await supabase.rpc('upsert_atleta', {
     p_nome:       dados.nome.trim(),
     p_cpf:        cpfLimpo,
     p_nascimento: dados.nascimento,
-    p_sexo:       dados.sexo ?? null,  // null para Kids/Caminhada quando não informado
+    p_sexo:       dados.sexo ?? null,
     p_email:      dados.email.trim().toLowerCase(),
     p_telefone:   dados.telefone?.trim() || null,
     p_emergencia: dados.contato_emergencia?.trim() || null,
   });
-
   if (error) throw new Error(`Erro ao criar atleta: ${error.message}`);
   if (data?.error) throw new Error(data.error);
   return data.athlete_id as string;
 }
 
-// ── Passo 2: cria a inscrição ─────────────────────────────────────────────
-// Categoria é derivada no front conforme modalidade, e armazenada como string
-// (category_id = text no schema, ex: "M 30-39", "Kids Geral", "Caminhada")
 async function criarRegistration(
   athlete_id: string,
   dados: DadosAtleta,
@@ -77,10 +74,9 @@ async function criarRegistration(
 ): Promise<string> {
   const categoria = calcCategoria(
     new Date(dados.nascimento),
-    dados.sexo ?? 'M', // sexo ignorado para Kids/Caminhada (modalidade define categoria)
+    dados.sexo ?? 'M',
     inscricao.modalidade
   );
-
   const { data, error } = await supabase
     .from('registration')
     .insert({
@@ -95,78 +91,90 @@ async function criarRegistration(
     })
     .select('id')
     .single();
-
   if (error) {
-    if (error.code === '23505') {
-      throw new Error('Este CPF já está inscrito nesta prova.');
-    }
-    throw new Error(`Erro ao criar inscrição: ${error.message}`);
+    if (error.code === '23505') throw new Error('Este CPF ja esta inscrito nesta prova.');
+    throw new Error(`Erro ao criar inscricao: ${error.message}`);
   }
-
   return data.id;
 }
 
-// ── Passo 3: cria o pagamento ────────────────────────────────────────────
 async function criarPagamento(
   registration_id: string,
   inscricao: DadosInscricao
 ): Promise<string> {
-  const gateway_ref = `mock_${registration_id}_${Date.now()}`;
-
-  const { data, error } = await supabase
+  const gateway_ref = `pix_${registration_id}_${Date.now()}`;
+  const { error } = await supabase
     .from('payment')
     .insert({
       registration_id,
-      gateway:                  'mock',
-      metodo:                   inscricao.metodo_pagamento,
-      valor_centavos:           inscricao.valor_centavos,          // preço líquido
-      taxa_plataforma_centavos: inscricao.taxa_plataforma_centavos, // R$5,00
+      gateway:                  'pix_manual',
+      metodo:                   'pix',
+      valor_centavos:           inscricao.valor_centavos,
+      taxa_plataforma_centavos: inscricao.taxa_plataforma_centavos,
       status:                   'criado',
       gateway_ref,
-    })
-    .select('gateway_ref')
-    .single();
-
+    });
   if (error) throw new Error(`Erro ao criar pagamento: ${error.message}`);
-  return data.gateway_ref;
+  return gateway_ref;
 }
 
-// ── Passo 4: confirma o pagamento (mock) e gera o bib ───────────────────
-async function confirmarPagamentoMock(gateway_ref: string): Promise<{ bib_number: number }> {
-  const { data, error } = await supabase
-    .rpc('confirmar_pagamento_mock', { p_gateway_ref: gateway_ref });
-
-  if (error) throw new Error(`Erro ao confirmar pagamento: ${error.message}`);
-  if (data?.error) throw new Error(data.error);
-
-  return { bib_number: data.bib_number };
-}
-
-// ── Orquestrador principal ─────────────────────────────────────────────────
-export async function criarInscricaoCompleta(
+export async function criarInscricaoPendente(
   atletaDados: DadosAtleta,
   inscricaoDados: DadosInscricao,
   provaDados: { label: string }
-): Promise<ResultadoInscricao> {
+): Promise<InscricaoPendente> {
   const athlete_id      = await upsertAtleta(atletaDados);
   const registration_id = await criarRegistration(athlete_id, atletaDados, inscricaoDados);
   const gateway_ref     = await criarPagamento(registration_id, inscricaoDados);
-  const { bib_number }  = await confirmarPagamentoMock(gateway_ref);
-
   const categoria = calcCategoria(
     new Date(atletaDados.nascimento),
-    atletaDados.sexo ?? 'M', // ignorado para Kids/Caminhada
+    atletaDados.sexo ?? 'M',
     inscricaoDados.modalidade
   );
-
   return {
     registration_id,
-    bib_number,
+    gateway_ref,
+    valor_total:  inscricaoDados.valor_centavos + inscricaoDados.taxa_plataforma_centavos,
     categoria,
-    atleta_nome:    atletaDados.nome,
-    prova_label:    provaDados.label,
-    valor_centavos: inscricaoDados.valor_centavos,
-    metodo:         inscricaoDados.metodo_pagamento,
-    status:         'confirmado',
+    atleta_nome:  atletaDados.nome,
+    atleta_email: atletaDados.email,
+    prova_label:  provaDados.label,
   };
+}
+
+export async function verificarComprovantePix(
+  registration_id: string,
+  valor_centavos: number,
+  atleta_email: string,
+  atleta_nome: string,
+  prova_label: string,
+  categoria: string,
+  imagemBase64: string,
+  mimeType: string
+): Promise<{ aprovado: boolean; motivo: string; bib_number?: number }> {
+  const res = await fetch(
+    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-pix-receipt`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({
+        registration_id,
+        valor_centavos,
+        atleta_email,
+        atleta_nome,
+        prova_label,
+        categoria,
+        imagem_base64: imagemBase64,
+        mime_type: mimeType,
+      }),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Erro na verificacao: ${err}`);
+  }
+  return res.json();
 }

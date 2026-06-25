@@ -9,9 +9,10 @@ import type { Modalidade } from '../lib/calcCategoria';
 import { validaCPF, formataCPF } from '../lib/validaCPF';
 import { formataBRL } from '../lib/precoLoteAtual';
 import { getEventoPublico, getLoteAtivo, validarCupom } from '../services/eventoService';
-import { criarInscricaoCompleta } from '../services/inscricaoService';
+import { criarInscricaoPendente } from '../services/inscricaoService';
 import type { EventoData } from '../services/eventoService';
-import type { ResultadoInscricao } from '../services/inscricaoService';
+import type { ResultadoInscricao, InscricaoPendente } from '../services/inscricaoService';
+import PixPaymentScreen from '../components/PixPaymentScreen';
 
 interface Props { onBack: () => void; onDone: () => void; }
 
@@ -42,6 +43,7 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
   const [enviando, setEnviando] = useState(false);
   const [erroEnvio, setErroEnvio] = useState('');
   const [resultado, setResultado] = useState<ResultadoInscricao | null>(null);
+  const [pixPendente, setPixPendente] = useState<InscricaoPendente | null>(null);
   const [cpfErro, setCpfErro]   = useState('');
   const [idadeErro, setIdadeErro] = useState('');
   const [cupomInfo, setCupomInfo] = useState<{ valido: boolean; desconto: number; id?: string } | null>(null);
@@ -132,10 +134,10 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
     setEnviando(true);
     setErroEnvio('');
     try {
-      const res = await criarInscricaoCompleta(
+      const pendente = await criarInscricaoPendente(
         {
           nome: f.nome, cpf: f.cpf, nascimento: f.nasc,
-          sexo: f.sexo ? (f.sexo as 'M' | 'F') : undefined, // opcional para Kids/Caminhada
+          sexo: f.sexo ? (f.sexo as 'M' | 'F') : undefined,
           email: f.email,
           telefone: f.tel, contato_emergencia: f.emergencia,
         },
@@ -146,19 +148,25 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
           modalidade:               f.modalidade as Modalidade,
           camiseta:                 f.camiseta as 'PP' | 'P' | 'M' | 'G' | 'GG' | 'XG' | '8' | '10' | '12',
           cupom_id:                 cupomInfo?.id,
-          valor_centavos:           valorInscricao,   // líquido (sem taxa)
-          taxa_plataforma_centavos: TAXA_PLATAFORMA,  // R$5,00 separado
-          metodo_pagamento:         f.pag,
+          valor_centavos:           valorInscricao,
+          taxa_plataforma_centavos: TAXA_PLATAFORMA,
+          metodo_pagamento:         'pix',
         },
         { label: race.label }
       );
-      setResultado(res);
-      setStep(5);
+      setPixPendente(pendente);
+      setStep(4.5 as unknown as number); // tela intermediaria Pix
     } catch (err: unknown) {
       setErroEnvio(err instanceof Error ? err.message : 'Erro inesperado. Tente novamente.');
     } finally {
       setEnviando(false);
     }
+  };
+
+  const handlePixConfirmado = (res: ResultadoInscricao) => {
+    setResultado(res);
+    setPixPendente(null);
+    setStep(5);
   };
 
   if (loading) return (
@@ -183,8 +191,10 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
 
         {/* Header */}
         <div className="flex items-center justify-between">
-          <button onClick={step === 1 ? onBack : () => setStep(s => s - 1)} className="btn-ghost">
-            ← {step === 1 ? 'Voltar ao site' : 'Voltar'}
+          <button
+            onClick={pixPendente ? () => { setPixPendente(null); setStep(4); } : step === 1 ? onBack : () => setStep(s => s - 1)}
+            className="btn-ghost">
+            {pixPendente ? '← Cancelar Pix' : step === 1 ? '← Voltar ao site' : '← Voltar'}
           </button>
           <Logo height={28} />
         </div>
@@ -202,8 +212,34 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
           ))}
         </div>
         <div className="font-display italic tracking-[0.1em] text-[13px] text-brand-purple mt-2 uppercase">
-          Passo {step} de 5 · {STEPS[step - 1]}
+          {pixPendente ? 'Passo 4 de 5 · Pagamento Pix' : `Passo ${step} de 5 · ${STEPS[step - 1]}`}
         </div>
+
+        {/* ── TELA PIX (step 4.5) ── */}
+        {pixPendente && (
+          <div className="mt-6">
+            <div className="bg-brand-lilac border border-brand-lilac-mid rounded-2xl p-4 mb-5">
+              <h3 className="font-display font-extrabold italic uppercase text-[15px] text-brand-purple-dark mb-1">
+                Pague via Pix e confirme sua inscricao
+              </h3>
+              <p className="text-[12px] text-brand-muted">
+                Realize o pagamento no seu banco, fotografe o comprovante e envie abaixo.
+                Nossa IA verificara automaticamente.
+              </p>
+            </div>
+            <PixPaymentScreen
+              registration_id={pixPendente.registration_id}
+              valor_total={pixPendente.valor_total}
+              valor_inscricao={pixPendente.valor_total - 500}
+              taxa={500}
+              atleta_nome={pixPendente.atleta_nome}
+              atleta_email={pixPendente.atleta_email}
+              prova_label={pixPendente.prova_label}
+              categoria={pixPendente.categoria}
+              onConfirmado={handlePixConfirmado}
+            />
+          </div>
+        )}
 
         {/* ── STEP 1: Escolha a prova ── */}
         {step === 1 && (
