@@ -1,10 +1,11 @@
-﻿// src/components/PixPaymentScreen.tsx
+// src/components/PixPaymentScreen.tsx
 // Tela Pix: chave CNPJ + upload + duplo caminho (aprovado / em_analise)
 // Beneficiaria: ANA CRISTINA CORREA GOMES — CNPJ: 51.950.403/0001-32
 
 import { useState, useRef } from "react";
 import { verificarComprovantePix } from "../services/inscricaoService";
 import type { ResultadoInscricao } from "../services/inscricaoService";
+import { supabase } from "../lib/supabase";
 
 const PIX_KEY         = "51950403000132";
 const PIX_KEY_DISPLAY = "51.950.403/0001-32";
@@ -67,28 +68,55 @@ export default function PixPaymentScreen({
     if (!arquivo) { setErro("Selecione o comprovante antes de enviar."); return; }
     setLoading(true); setErro(""); setRejeitado("");
     try {
+      // ── PASSO 1: Upload direto do browser para o Storage ──────────────
+      const ext  = arquivo.type.includes("png") ? "png" : arquivo.type.includes("webp") ? "webp" : "jpg";
+      const path = `${registration_id}/comprovante_${Date.now()}.${ext}`;
+      let comprovante_url: string | null = null;
+
+      const { error: uploadErr } = await supabase.storage
+        .from("comprovantes")
+        .upload(path, arquivo, { contentType: arquivo.type, upsert: true });
+
+      if (!uploadErr) {
+        const { data: urlData } = supabase.storage.from("comprovantes").getPublicUrl(path);
+        comprovante_url = urlData?.publicUrl ?? null;
+
+        // Salva URL + mime no pix_receipt imediatamente (antes do Gemini)
+        await supabase.from("pix_receipt").upsert({
+          registration_id,
+          comprovante_url,
+          comprovante_mime: arquivo.type,
+          em_analise: false,
+          gemini_resultado: null,
+          gemini_motivo:    null,
+          gemini_raw:       null,
+        }, { onConflict: "registration_id" });
+      } else {
+        console.warn("Storage upload falhou:", uploadErr.message);
+      }
+
+      // ── PASSO 2: Converte para base64 para o Gemini ──────────────────
       const reader = new FileReader();
       const base64 = await new Promise<string>((resolve, reject) => {
         reader.onload = () => resolve((reader.result as string).split(",")[1]);
         reader.onerror = reject;
         reader.readAsDataURL(arquivo);
       });
+
+      // ── PASSO 3: Chama Edge Function (análise Gemini + update DB) ────
       const resultado = await verificarComprovantePix(
         registration_id, valor_total, atleta_email, atleta_nome,
         prova_label, categoria, base64, arquivo.type
       );
 
       if (resultado.aprovado && resultado.bib_number) {
-        // Gemini aprovou → tela de confirmação completa
         onConfirmado({
           registration_id, bib_number: resultado.bib_number, categoria,
           atleta_nome, atleta_email, prova_label, valor_centavos: valor_total, metodo: "pix", status: "confirmado",
         });
       } else if (resultado.em_analise) {
-        // Gemini reprovou mas comprovante foi salvo → aguarda revisão manual
         onEmAnalise();
       } else {
-        // Erro claro (sem salvar) — pede correção
         setRejeitado(resultado.motivo || "Comprovante nao aprovado. Verifique os dados e tente novamente.");
       }
     } catch (e: unknown) {
