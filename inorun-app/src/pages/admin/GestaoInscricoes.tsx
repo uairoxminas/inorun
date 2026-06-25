@@ -121,16 +121,29 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
     if (!confirm(msg)) return;
     setRevisando(true);
     try {
-      const { data, error } = await supabase.rpc('confirmar_inscricao_manual', {
-        p_registration_id: atleta.registration_id,
-        p_acao: acao,
-      });
-      if (error || data?.error) {
-        alert('Erro: ' + (error?.message || data?.error));
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-confirmar`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({
+            registration_id: atleta.registration_id,
+            acao,
+          }),
+        }
+      );
+      const data = await res.json();
+      if (!data.ok) {
+        alert('Erro: ' + (data.error ?? 'Erro desconhecido'));
       } else {
         alert(acao === 'confirmar'
-          ? `✅ Inscrição confirmada! Bib #${data.bib_number}`
-          : '❌ Comprovante rejeitado. Inscrição voltou para pendente.');
+          ? `✅ Inscrição confirmada! Bib #${data.bib_number}\nEmail de confirmação enviado ao atleta.`
+          : '❌ Comprovante rejeitado. Inscrição voltou para pendente.\nAtleta notificado por email.');
         await onRecarregar();
         setAtleta(null);
       }
