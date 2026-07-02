@@ -17,6 +17,7 @@ import type { ResultadoRow } from '../services/resultadosService';
 
 interface Props {
   onRegister: () => void;
+  onRegisterGrupo?: () => void;
   onAdmin: () => void;
   totalInscritos: number;
   onEventoCarregado?: (e: EventoData) => void;
@@ -25,7 +26,7 @@ interface Props {
 const FAQ_ITEMS = [
   { q: 'Como funciona a retirada do kit?',    a: 'A retirada acontece nos dias que antecedem a prova, mediante documento com foto e comprovante de inscrição.' },
   { q: 'Como são definidas as categorias?',   a: 'Corrida 5 km e 10 km: masculino e feminino com premiação por faixa etária — Sub-20 (13-19), 20-29, 30-39, 40-49 e 50+. Kids Geral (7-12 anos · 300 metros): todos ganham medalha. Caminhada 5 km: todos ganham medalha. A categoria é calculada pela idade na data da prova (11/10/2026).' },
-  { q: 'Posso me inscrever em grupo?',         a: 'Sim! O sistema permite inscrição de múltiplos atletas em uma única sessão.' },
+  { q: 'Posso me inscrever em grupo?',         a: 'Sim! Grupos, assessorias e equipes com 10 atletas ou mais têm valor especial de R$89 por inscrição. O responsável cadastra todos de uma vez e paga em um único Pix. Use o botão "Inscrição em grupo".' },
   { q: 'O pagamento via Pix confirma na hora?', a: 'Sim. A confirmação por Pix é automática e o número de peito é gerado em seguida.' },
   { q: 'Posso transferir minha inscrição?',   a: 'Sim, transferências são permitidas até 15 dias antes do evento pelo painel do atleta.' },
   { q: 'Como funciona a prova Kids?',          a: 'A prova Kids é uma corrida de 300 metros para crianças de 7 a 12 anos. Todos os participantes ganham medalha e sobem ao pódio — não há classificação competitiva, só celebração!' },
@@ -39,7 +40,7 @@ const KIT_ITEMS = [
   { item: 'Sacochila',         det: 'Para retirada do kit' },
 ];
 
-export default function PublicSite({ onRegister, onAdmin, totalInscritos, onEventoCarregado }: Props) {
+export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, totalInscritos, onEventoCarregado }: Props) {
   const { d, h, m, s } = useCountdown();
   const [openFaq, setOpenFaq]   = useState<number | null>(null);
   const [evento, setEvento]     = useState<EventoData | null>(null);
@@ -262,6 +263,12 @@ export default function PublicSite({ onRegister, onAdmin, totalInscritos, onEven
             <button id="hero-garantir-vaga" onClick={onRegister} className="btn-primary text-[18px] md:text-xl px-9 py-4 w-full sm:w-auto">
               Garantir vaga
             </button>
+            {onRegisterGrupo && (
+              <button id="hero-inscricao-grupo" onClick={onRegisterGrupo}
+                className="btn-outline text-[16px] md:text-lg px-7 py-4 w-full sm:w-auto">
+                👥 Inscrição em grupo
+              </button>
+            )}
             <div className="text-sm text-brand-muted text-center sm:text-left">
               <span className="font-display font-extrabold text-brand-purple" style={{ fontSize: 22 }}>
                 {inscritos.toLocaleString('pt-BR')}

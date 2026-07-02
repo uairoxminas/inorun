@@ -5,6 +5,7 @@ import Logo from '../components/Logo';
 import AdminLogin from './AdminLogin';
 import AdminDashboard from './admin/AdminDashboard';
 import GestaoInscricoes from './admin/GestaoInscricoes';
+import GestaoGrupos from './admin/GestaoGrupos';
 import GestaoLotesCupons from './admin/GestaoLotesCupons';
 import Cronograma from './admin/Cronograma';
 import Financeiro from './admin/Financeiro';
@@ -15,11 +16,12 @@ import type { InscritoRow, MetricasAdmin } from '../services/adminService';
 
 interface Props { onBack: () => void; totalInscritos: number; }
 
-type Secao = 'dashboard' | 'inscricoes' | 'lotes' | 'cronograma' | 'financeiro' | 'checkin' | 'resultados';
+type Secao = 'dashboard' | 'inscricoes' | 'grupos' | 'lotes' | 'cronograma' | 'financeiro' | 'checkin' | 'resultados';
 
 const NAV: { id: Secao; label: string; icon: string }[] = [
   { id: 'dashboard',  label: 'Dashboard',     icon: '📊' },
   { id: 'inscricoes', label: 'Inscrições',     icon: '🏃' },
+  { id: 'grupos',     label: 'Grupos',         icon: '👥' },
   { id: 'lotes',      label: 'Lotes & Cupons', icon: '🎟️' },
   { id: 'cronograma', label: 'Cronograma',     icon: '🕐' },
   { id: 'financeiro', label: 'Financeiro',     icon: '💰' },
@@ -142,6 +144,7 @@ export default function AdminPanel({ onBack }: Props) {
           {secao === 'inscricoes' && (
             <GestaoInscricoes inscritos={inscritos} onRecarregar={carregar} loading={loading} />
           )}
+          {secao === 'grupos' && <GestaoGrupos />}
           {secao === 'lotes' && <GestaoLotesCupons />}
           {secao === 'cronograma' && <Cronograma />}
           {secao === 'financeiro' && eventoId && <Financeiro eventoId={eventoId} />}

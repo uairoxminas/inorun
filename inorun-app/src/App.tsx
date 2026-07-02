@@ -6,10 +6,11 @@ import { useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import PublicSite from './pages/PublicSite';
 import RegisterFlow from './pages/RegisterFlow';
+import GroupRegisterFlow from './pages/GroupRegisterFlow';
 import AdminPanel from './pages/AdminPanel';
 import DevHandshake from './pages/DevHandshake';
 
-type View = 'site' | 'register' | 'admin';
+type View = 'site' | 'register' | 'grupo' | 'admin';
 
 function AppInner() {
   const [view, setView] = useState<View>('site');
@@ -21,6 +22,7 @@ function AppInner() {
         <PublicSite
           totalInscritos={totalInscritos}
           onRegister={() => setView('register')}
+          onRegisterGrupo={() => setView('grupo')}
           onAdmin={() => setView('admin')}
         />
       )}
@@ -31,6 +33,12 @@ function AppInner() {
             setTotalInscritos(n => n + 1);
             setView('site');
           }}
+        />
+      )}
+      {view === 'grupo' && (
+        <GroupRegisterFlow
+          onBack={() => setView('site')}
+          onDone={() => setView('site')}
         />
       )}
       {view === 'admin' && (
