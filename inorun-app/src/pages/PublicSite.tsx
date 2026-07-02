@@ -316,7 +316,7 @@ export default function PublicSite({ onRegister, onAdmin, totalInscritos, onEven
                   <div>
                     <span className="text-[11px] font-bold tracking-widest uppercase text-yellow-700">🎖️ Kids · 7-12 anos · 300m</span>
                     <div className="font-display font-extrabold italic text-[26px] uppercase text-yellow-800 leading-none mt-0.5">
-                      {raceKids?.label ?? 'Kids Geral'}
+                      {raceKids?.label ?? 'Kids - 300 metros'}
                     </div>
                   </div>
                   <div className="text-right">
@@ -341,7 +341,7 @@ export default function PublicSite({ onRegister, onAdmin, totalInscritos, onEven
                   <div>
                     <span className="text-[11px] font-bold tracking-widest uppercase text-green-700">🚶 Caminhada · Idade livre</span>
                     <div className="font-display font-extrabold italic text-[26px] uppercase text-green-800 leading-none mt-0.5">
-                      {raceCaminhada?.label ?? 'Caminhada 5 KM'}
+                      {raceCaminhada?.label ?? 'Caminhada - 5 KM'}
                     </div>
                   </div>
                   <div className="text-right">

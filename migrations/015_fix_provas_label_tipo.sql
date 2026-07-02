@@ -16,7 +16,7 @@ UPDATE race SET tipo = 'corrida'
 -- ══════════════════════════════════════════════════════════════
 UPDATE race
 SET
-  label        = 'Kids Geral',
+  label        = 'Kids - 300 metros',
   descricao    = 'Corrida de 300 metros para criancas de 7 a 12 anos. Todos os participantes ganham medalha e sobem ao podio - nao ha classificacao competitiva, so celebracao!',
   distancia_km = 0
 WHERE tipo = 'kids';
@@ -27,7 +27,7 @@ WHERE tipo = 'kids';
 -- ══════════════════════════════════════════════════════════════
 UPDATE race
 SET
-  label     = 'Caminhada 5 KM',
+  label     = 'Caminhada - 5 KM',
   descricao = 'Caminhada de 5 km, inclusiva e sem cronometragem competitiva. Aberta para qualquer idade. Todos os participantes ganham medalha e sobem ao podio!'
 WHERE tipo = 'caminhada';
 
