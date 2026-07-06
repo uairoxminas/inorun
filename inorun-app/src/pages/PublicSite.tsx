@@ -465,7 +465,7 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
             <Eyebrow>O traçado</Eyebrow>
             <SectionTitle>Percurso</SectionTitle>
             <p className="text-brand-muted mt-4 max-w-[420px] leading-relaxed">
-              Largada e chegada no coração de Paraopeba, com pontos de hidratação ao longo do trajeto e apoio médico.
+              Largada e chegada na porta da academia Inolive, com pontos de hidratação ao longo do trajeto e apoio médico.
             </p>
             <div className="mt-6 flex gap-8">
               {[['5 pts', 'Hidratação'], ['Sim', 'Apoio médico'], ['07h00', 'Largada']].map(([v, k]) => (
