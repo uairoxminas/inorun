@@ -12,6 +12,7 @@ export interface AtletaGrupo {
   email: string;       // opcional na UI, mas string vazia é aceita
   telefone: string;
   camiseta: string;
+  camiseta_modelo: 'unissex' | 'babylook';
   race_id: string;
   categoria: string;   // calculada no cliente (calcCategoria)
 }
@@ -56,6 +57,7 @@ export interface GrupoAtletaRow {
   distancia_km: number;
   categoria: string;
   camiseta: string;
+  camiseta_modelo: string;
   bib_number: number | null;
   status: string;
 }

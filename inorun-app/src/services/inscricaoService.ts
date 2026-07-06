@@ -22,7 +22,8 @@ export interface DadosInscricao {
   lot_id: string;
   event_id: string;
   modalidade: Modalidade;
-  camiseta: 'PP' | 'P' | 'M' | 'G' | 'GG' | 'XG' | '8' | '10' | '12';
+  camiseta: 'PP' | 'P' | 'M' | 'G' | 'GG' | 'XG' | 'XGG' | '4' | '6' | '8' | '10' | '12' | '14';
+  camiseta_modelo: 'unissex' | 'babylook';
   cupom_id?: string;
   valor_centavos: number;
   taxa_plataforma_centavos: number;
@@ -87,6 +88,7 @@ async function criarRegistration(
       lot_id:      inscricao.lot_id,
       category_id: categoria,
       camiseta:    inscricao.camiseta,
+      camiseta_modelo: inscricao.camiseta_modelo,
       cupom_id:    inscricao.cupom_id || null,
       status:      'pendente',
     })

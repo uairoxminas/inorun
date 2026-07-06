@@ -6,7 +6,7 @@ import { cancelarInscricao, editarInscricao, gerarCSV } from '../../services/adm
 import type { InscritoRow } from '../../services/adminService';
 import { supabase } from '../../lib/supabase';
 
-const CAMISETAS = ['PP', 'P', 'M', 'G', 'GG', 'XG'];
+const CAMISETAS = ['PP', 'P', 'M', 'G', 'GG', 'XG', 'XGG', '4', '6', '8', '10', '12', '14'];
 const STATUS_OPTIONS = ['pendente', 'confirmado', 'cancelado', 'em_analise'];
 
 interface Props { inscritos: InscritoRow[]; onRecarregar: () => void; loading: boolean; }
@@ -275,6 +275,9 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
                     <span className="font-display font-bold text-[12px] bg-brand-lilac text-brand-purple-dark px-2 py-0.5 rounded">
                       {r.camiseta}
                     </span>
+                    <span className="block text-[10px] text-brand-muted mt-0.5">
+                      {r.camiseta_modelo === 'babylook' ? 'Baby Look' : 'Unissex'}
+                    </span>
                   </td>
                   <td className="px-3 py-2.5 text-[13px]">{formataBRL(r.preco_centavos ?? 0)}</td>
                   <td className="px-3 py-2.5 text-center">
@@ -343,7 +346,7 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
                       ['Sexo',       atleta.sexo === 'M' ? 'Masculino' : 'Feminino'],
                       ['Prova',      `${atleta.distancia} km`],
                       ['Categoria',  atleta.categoria],
-                      ['Camiseta',   atleta.camiseta],
+                      ['Camiseta',   `${atleta.camiseta} · ${atleta.camiseta_modelo === 'babylook' ? 'Baby Look' : 'Unissex'}`],
                       ['Lote',       atleta.lote ?? '—'],
                       ['Valor',      formataBRL(atleta.preco_centavos ?? 0)],
                       ['Pagamento',  atleta.pagamento ?? '—'],

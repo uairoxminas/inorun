@@ -1,36 +1,35 @@
 -- migrations/023_precos_individuais_v2.sql
--- INO RUN 2026 — Novo preço individual: Lote 1 = R$99, Lote 2 = R$109, sem Lote 3
--- Igual para 5km e 10km. Lote 1 até 31/07/2026, Lote 2 de 01/08 até a prova (10/10).
--- Kids/Caminhada NÃO são alterados. Executar manualmente no Supabase SQL Editor.
+-- INO RUN 2026 — Novo preço individual: Lote 1 = R$99, Lote 2 = R$109, sem Lote 3.
+-- Aplica a 5km, 10km E Caminhada (mesma lógica e preços).
+-- Lote 1 até 15/08/2026, Lote 2 de 16/08 até 01/10/2026 (encerra tudo em 01/10).
+-- Kids NÃO é alterado aqui (ver migration 027). Executar manualmente no Supabase SQL Editor.
 
 -- ══════════════════════════════════════════════════════════════
--- 1. LOTE 1 (R$99) — 5km e 10km · até 31/07/2026
+-- 1. LOTE 1 (R$99) — corrida 5km/10km e Caminhada · até 15/08/2026
 -- ══════════════════════════════════════════════════════════════
 UPDATE pricing_lot pl
 SET preco_centavos = 9900,
     abre_em        = '2026-01-01 00:00:00-03',
-    fecha_em       = '2026-07-31 23:59:59-03'
+    fecha_em       = '2026-08-15 23:59:59-03'
 FROM race r
 JOIN event e ON r.event_id = e.id
 WHERE pl.race_id = r.id
   AND e.slug = 'inorun-2026'
-  AND r.distancia_km IN (5, 10)
-  AND r.tipo = 'corrida'
+  AND r.tipo IN ('corrida', 'caminhada')
   AND pl.ordem = 1;
 
 -- ══════════════════════════════════════════════════════════════
--- 2. LOTE 2 (R$109) — 5km e 10km · 01/08 até a prova (10/10)
+-- 2. LOTE 2 (R$109) — corrida 5km/10km e Caminhada · 16/08 até 01/10/2026
 -- ══════════════════════════════════════════════════════════════
 UPDATE pricing_lot pl
 SET preco_centavos = 10900,
-    abre_em        = '2026-08-01 00:00:00-03',
-    fecha_em       = '2026-10-10 23:59:59-03'
+    abre_em        = '2026-08-16 00:00:00-03',
+    fecha_em       = '2026-10-01 23:59:59-03'
 FROM race r
 JOIN event e ON r.event_id = e.id
 WHERE pl.race_id = r.id
   AND e.slug = 'inorun-2026'
-  AND r.distancia_km IN (5, 10)
-  AND r.tipo = 'corrida'
+  AND r.tipo IN ('corrida', 'caminhada')
   AND pl.ordem = 2;
 
 -- ══════════════════════════════════════════════════════════════
@@ -49,8 +48,7 @@ BEGIN
     JOIN race  r ON pl.race_id = r.id
     JOIN event e ON r.event_id = e.id
     WHERE e.slug = 'inorun-2026'
-      AND r.distancia_km IN (5, 10)
-      AND r.tipo = 'corrida'
+      AND r.tipo IN ('corrida', 'caminhada')
       AND pl.ordem = 3
   LOOP
     IF EXISTS (SELECT 1 FROM registration WHERE lot_id = v_lote.id) THEN

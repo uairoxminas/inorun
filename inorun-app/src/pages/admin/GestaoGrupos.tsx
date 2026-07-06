@@ -136,7 +136,7 @@ export default function GestaoGrupos() {
                   <table className="w-full text-[13px]">
                     <thead>
                       <tr className="text-brand-muted text-[11px] uppercase tracking-wide">
-                        {['Nome', 'CPF', 'Prova', 'Categoria', 'Cam.', 'Bib', 'Status'].map(h => (
+                        {['Nome', 'CPF', 'Prova', 'Categoria', 'Cam.', 'Modelo', 'Bib', 'Status'].map(h => (
                           <th key={h} className="px-3 py-2 text-left font-medium">{h}</th>
                         ))}
                       </tr>
@@ -149,12 +149,13 @@ export default function GestaoGrupos() {
                           <td className="px-3 py-2 text-brand-muted">{a.prova}</td>
                           <td className="px-3 py-2 text-brand-muted">{a.categoria}</td>
                           <td className="px-3 py-2 text-brand-muted">{a.camiseta}</td>
+                          <td className="px-3 py-2 text-brand-muted">{a.camiseta_modelo === 'babylook' ? 'Baby Look' : 'Unissex'}</td>
                           <td className="px-3 py-2 font-bold text-brand-purple">{a.bib_number ?? '—'}</td>
                           <td className="px-3 py-2 text-brand-muted">{a.status}</td>
                         </tr>
                       ))}
                       {(atletas[g.id] ?? []).length === 0 && (
-                        <tr><td colSpan={7} className="px-3 py-4 text-center text-brand-muted">Carregando atletas...</td></tr>
+                        <tr><td colSpan={8} className="px-3 py-4 text-center text-brand-muted">Carregando atletas...</td></tr>
                       )}
                     </tbody>
                   </table>

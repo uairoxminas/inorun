@@ -8,17 +8,17 @@ import { calcCategoria, validaIdadeModalidade } from '../lib/calcCategoria';
 import type { Modalidade } from '../lib/calcCategoria';
 import { validaCPF, formataCPF } from '../lib/validaCPF';
 import { formataBRL } from '../lib/precoLoteAtual';
+import { tamanhosDisponiveis } from '../lib/camisetas';
 import { getEventoPublico, getLoteAtivo, validarCupom } from '../services/eventoService';
 import { criarInscricaoPendente } from '../services/inscricaoService';
 import type { EventoData } from '../services/eventoService';
 import type { ResultadoInscricao, InscricaoPendente } from '../services/inscricaoService';
 import PixPaymentScreen from '../components/PixPaymentScreen';
+import TabelaMedidasModal from '../components/TabelaMedidasModal';
 
 interface Props { onBack: () => void; onDone: () => void; }
 
 const STEPS    = ['Prova', 'Seus dados', 'Categoria & kit', 'Pagamento', 'Confirmação'];
-const CAMISETAS_ADULTO = ['PP', 'P', 'M', 'G', 'GG', 'XG'] as const;
-const CAMISETAS_KIDS   = ['8', '10', '12', 'PP', 'P'] as const;   // tamanhos Kids
 
 // Ícone e cor por modalidade
 const MODALIDADE_CONFIG: Record<string, { emoji: string; cor: string; badge: string }> = {
@@ -33,7 +33,8 @@ interface FormState {
   modalidade: Modalidade | '';
   nome: string; cpf: string; nasc: string; sexo: 'M' | 'F' | '';
   email: string; tel: string; emergencia: string;
-  camiseta: string; cupom: string; pag: 'pix'; termo: boolean;
+  camiseta: string; camiseta_modelo: 'unissex' | 'babylook';
+  cupom: string; pag: 'pix'; termo: boolean;
 }
 
 export default function RegisterFlow({ onBack, onDone }: Props) {
@@ -54,8 +55,9 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
     race_id: '', dist: '', modalidade: '',
     nome: '', cpf: '', nasc: '', sexo: '',
     email: '', tel: '', emergencia: '',
-    camiseta: '', cupom: '', pag: 'pix', termo: false,
+    camiseta: '', camiseta_modelo: 'unissex', cupom: '', pag: 'pix', termo: false,
   });
+  const [verTabela, setVerTabela] = useState(false);
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF(p => ({ ...p, [k]: v }));
 
   useEffect(() => {
@@ -148,7 +150,8 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
           lot_id:                   loteAtual.id,
           event_id:                 evento.id,
           modalidade:               f.modalidade as Modalidade,
-          camiseta:                 f.camiseta as 'PP' | 'P' | 'M' | 'G' | 'GG' | 'XG' | '8' | '10' | '12',
+          camiseta:                 f.camiseta as 'PP' | 'P' | 'M' | 'G' | 'GG' | 'XG' | 'XGG' | '4' | '6' | '8' | '10' | '12' | '14',
+          camiseta_modelo:          f.camiseta_modelo,
           cupom_id:                 cupomInfo?.id,
           valor_centavos:           valorInscricao,
           taxa_plataforma_centavos: TAXA_PLATAFORMA,
@@ -463,13 +466,42 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
               </div>
             )}
 
+            {/* Modelo da camiseta */}
             <div>
-              <label className="label">Tamanho da camiseta</label>
+              <label className="label">Modelo da camiseta</label>
+              <div className="grid grid-cols-2 gap-3">
+                {([
+                  { id: 'unissex',  emoji: '👕', nome: 'Unissex', det: 'Com manga' },
+                  { id: 'babylook', emoji: '👚', nome: 'Baby Look', det: 'Modelagem feminina' },
+                ] as const).map(m => (
+                  <button key={m.id} id={`select-modelo-${m.id}`}
+                    onClick={() => setF(p => {
+                      const validos = tamanhosDisponiveis(p.modalidade, m.id);
+                      return { ...p, camiseta_modelo: m.id, camiseta: validos.includes(p.camiseta) ? p.camiseta : '' };
+                    })}
+                    className={`text-left p-4 rounded-xl border-2 transition-all duration-150
+                      ${f.camiseta_modelo === m.id ? 'bg-brand-purple text-white border-brand-purple' : 'bg-white text-brand-ink border-brand-lilac-mid hover:border-brand-purple'}`}>
+                    <div className="text-[18px]">{m.emoji}</div>
+                    <div className="font-display font-bold text-[16px] leading-tight mt-1">{m.nome}</div>
+                    <div className={`text-[11px] ${f.camiseta_modelo === m.id ? 'text-white/80' : 'text-brand-muted'}`}>{m.det}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between">
+                <label className="label mb-0">Tamanho da camiseta</label>
+                <button type="button" id="btn-ver-tabela-medidas" onClick={() => setVerTabela(true)}
+                  className="text-[12px] text-brand-purple font-semibold underline hover:text-brand-purple-dark">
+                  📏 Ver tabela de medidas
+                </button>
+              </div>
               {f.modalidade === 'kids' && (
-                <p className="text-[12px] text-brand-muted mb-2">Tamanhos infantis (8, 10, 12) + adulto pequeno (PP, P)</p>
+                <p className="text-[12px] text-brand-muted mb-2 mt-1">Tamanhos infantis (8, 10, 12) + adulto pequeno (PP, P)</p>
               )}
-              <div className="flex flex-wrap gap-2">
-                {(f.modalidade === 'kids' ? CAMISETAS_KIDS : CAMISETAS_ADULTO).map(c => (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {tamanhosDisponiveis(f.modalidade, f.camiseta_modelo).map(c => (
                   <button key={c} id={`select-camiseta-${c}`}
                     onClick={() => set('camiseta', c)}
                     className={`w-14 py-3 rounded-xl font-display font-bold text-[16px] border-2 transition-all duration-150
@@ -508,7 +540,7 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
           <div className="mt-6 grid gap-5">
             <div className={`rounded-2xl p-5 border-2 ${modConf ? modConf.cor : 'bg-white border-brand-lilac-mid'}`}>
               <div className="text-[14px] text-brand-muted">
-                {race?.label} · {categoria} · Camiseta {f.camiseta}
+                {race?.label} · {categoria} · Camiseta {f.camiseta} ({f.camiseta_modelo === 'babylook' ? 'Baby Look' : 'Unissex'})
               </div>
               {loteAtual && <div className="text-[12px] text-brand-muted mt-0.5">{loteAtual.nome}</div>}
 
@@ -738,6 +770,8 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
           </button>
         )}
       </div>
+
+      {verTabela && <TabelaMedidasModal onClose={() => setVerTabela(false)} />}
     </div>
   );
 }

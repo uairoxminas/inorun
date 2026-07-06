@@ -8,6 +8,8 @@ import type { Modalidade } from '../lib/calcCategoria';
 import { validaCPF, formataCPF } from '../lib/validaCPF';
 import { formataBRL } from '../lib/precoLoteAtual';
 import { MIN_GRUPO, calcResumoGrupo } from '../lib/precoGrupo';
+import { tamanhosDisponiveis } from '../lib/camisetas';
+import TabelaMedidasModal from '../components/TabelaMedidasModal';
 import { getEventoPublico } from '../services/eventoService';
 import type { EventoData } from '../services/eventoService';
 import {
@@ -21,16 +23,15 @@ const PIX_KEY_DISPLAY = '51.950.403/0001-32';
 const PIX_KEY         = '51950403000132';
 const PIX_NOME        = 'ANA CRISTINA CORREA GOMES';
 
-const CAMISETAS_ADULTO = ['PP', 'P', 'M', 'G', 'GG', 'XG'];
-const CAMISETAS_KIDS   = ['8', '10', '12', 'PP', 'P'];
-
 interface AtletaForm {
   nome: string; cpf: string; nasc: string; sexo: 'M' | 'F' | '';
   email: string; tel: string; race_id: string; camiseta: string;
+  camiseta_modelo: 'unissex' | 'babylook';
 }
 
 const ATLETA_VAZIO: AtletaForm = {
   nome: '', cpf: '', nasc: '', sexo: '', email: '', tel: '', race_id: '', camiseta: '',
+  camiseta_modelo: 'unissex',
 };
 
 export default function GroupRegisterFlow({ onBack, onDone }: Props) {
@@ -61,12 +62,15 @@ export default function GroupRegisterFlow({ onBack, onDone }: Props) {
   const [preview, setPreview]   = useState<string | null>(null);
   const [copiado, setCopiado]   = useState(false);
   const [sucesso, setSucesso]   = useState(false);
+  const [verTabela, setVerTabela] = useState(false);
 
   useEffect(() => {
     getEventoPublico().then(setEvento).finally(() => setLoading(false));
   }, []);
 
   const races = evento?.races ?? [];
+  // Kids não entra na inscrição em grupo — removido do seletor de provas.
+  const racesGrupo = races.filter(r => r.tipo !== 'kids');
   const raceById = (id: string) => races.find(r => r.id === id);
   const modalidadeDe = (id: string): Modalidade => (raceById(id)?.tipo as Modalidade) || 'corrida';
 
@@ -119,6 +123,7 @@ export default function GroupRegisterFlow({ onBack, onDone }: Props) {
         email: a.email.trim().toLowerCase(),
         telefone: a.tel.trim(),
         camiseta: a.camiseta,
+        camiseta_modelo: a.camiseta_modelo,
         race_id: a.race_id,
         categoria: categoriaDe(a),
       }));
@@ -266,7 +271,7 @@ export default function GroupRegisterFlow({ onBack, onDone }: Props) {
             <div className="mt-4 space-y-3">
               {atletas.map((a, i) => {
                 const mod = a.race_id ? modalidadeDe(a.race_id) : 'corrida';
-                const camisetas = mod === 'kids' ? CAMISETAS_KIDS : CAMISETAS_ADULTO;
+                const camisetas = tamanhosDisponiveis(mod, a.camiseta_modelo);
                 const err = erroAtleta(a);
                 const cpfDup = a.cpf && cpfsLimpos.indexOf(a.cpf.replace(/\D/g, '')) !== i;
                 return (
@@ -300,14 +305,26 @@ export default function GroupRegisterFlow({ onBack, onDone }: Props) {
                       <select className="input md:col-span-4" value={a.race_id}
                         onChange={e => setAtleta(i, { race_id: e.target.value, camiseta: '' })}>
                         <option value="">Prova...</option>
-                        {races.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+                        {racesGrupo.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
                       </select>
-                      <select className="input md:col-span-3" value={a.camiseta}
+                      <select className="input md:col-span-3" value={a.camiseta_modelo}
+                        onChange={e => {
+                          const novoModelo = e.target.value as 'unissex' | 'babylook';
+                          const validos = tamanhosDisponiveis(mod, novoModelo);
+                          setAtleta(i, {
+                            camiseta_modelo: novoModelo,
+                            camiseta: validos.includes(a.camiseta) ? a.camiseta : '',
+                          });
+                        }}>
+                        <option value="unissex">👕 Unissex</option>
+                        <option value="babylook">👚 Baby Look</option>
+                      </select>
+                      <select className="input md:col-span-2" value={a.camiseta}
                         onChange={e => setAtleta(i, { camiseta: e.target.value })}>
-                        <option value="">Camiseta...</option>
+                        <option value="">Tam...</option>
                         {camisetas.map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
-                      <input type="email" className="input md:col-span-5" placeholder="E-mail (opcional)"
+                      <input type="email" className="input md:col-span-3" placeholder="E-mail (opcional)"
                         value={a.email} onChange={e => setAtleta(i, { email: e.target.value })} />
                     </div>
                     {err && (a.nome || a.cpf) && (
@@ -318,7 +335,13 @@ export default function GroupRegisterFlow({ onBack, onDone }: Props) {
               })}
             </div>
 
-            <button onClick={addAtleta} className="btn-outline mt-4 text-[14px] py-2.5 px-5">+ Adicionar atleta</button>
+            <div className="mt-4 flex items-center gap-4 flex-wrap">
+              <button onClick={addAtleta} className="btn-outline text-[14px] py-2.5 px-5">+ Adicionar atleta</button>
+              <button type="button" onClick={() => setVerTabela(true)}
+                className="text-[13px] text-brand-purple font-semibold underline hover:text-brand-purple-dark">
+                📏 Ver tabela de medidas
+              </button>
+            </div>
 
             {/* Resumo */}
             <div className="mt-6 card p-5 bg-brand-lilac/40">
@@ -411,6 +434,8 @@ export default function GroupRegisterFlow({ onBack, onDone }: Props) {
           </button>
         )}
       </div>
+
+      {verTabela && <TabelaMedidasModal onClose={() => setVerTabela(false)} />}
     </div>
   );
 }

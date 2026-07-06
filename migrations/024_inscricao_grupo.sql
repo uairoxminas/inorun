@@ -293,9 +293,11 @@ GRANT EXECUTE ON FUNCTION confirmar_grupo(uuid, text) TO anon;
 GRANT EXECUTE ON FUNCTION confirmar_grupo(uuid, text) TO authenticated;
 
 -- ══════════════════════════════════════════════════════════════
--- 7. VIEWS para o painel admin
+-- 7. VIEWS para o painel admin (DROP + CREATE p/ ser re-executável
+--    mesmo se a migration 025 já tiver recriado as views).
 -- ══════════════════════════════════════════════════════════════
-CREATE OR REPLACE VIEW vw_grupos AS
+DROP VIEW IF EXISTS vw_grupos;
+CREATE VIEW vw_grupos AS
 SELECT
   g.id,
   g.nome_grupo,
@@ -319,7 +321,8 @@ GRANT SELECT ON vw_grupos TO anon;
 GRANT SELECT ON vw_grupos TO authenticated;
 
 -- Atletas de um grupo (para o admin expandir)
-CREATE OR REPLACE VIEW vw_grupo_atletas AS
+DROP VIEW IF EXISTS vw_grupo_atletas;
+CREATE VIEW vw_grupo_atletas AS
 SELECT
   r.group_id,
   r.id            AS registration_id,

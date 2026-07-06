@@ -17,6 +17,7 @@ export interface InscritoRow {
   prova: string;
   categoria: string;
   camiseta: string;
+  camiseta_modelo?: string;
   bib_number: number | null;
   status: string;
   lote: string;
@@ -115,7 +116,7 @@ export function calcularMetricas(inscritos: InscritoRow[]): MetricasAdmin {
   const checkins    = inscritos.filter(i => i.checked_in_at);
 
   // Por camiseta — inclui tamanhos Kids (8, 10, 12) e adultos
-  const CAMISETAS_TODOS = ['8', '10', '12', 'PP', 'P', 'M', 'G', 'GG', 'XG'];
+  const CAMISETAS_TODOS = ['4', '6', '8', '10', '12', '14', 'PP', 'P', 'M', 'G', 'GG', 'XG', 'XGG'];
   const por_camiseta: MetricasAdmin['por_camiseta'] = {};
   CAMISETAS_TODOS.forEach(c => {
     const grupo = inscritos.filter(i => i.camiseta === c && i.status !== 'cancelado');
@@ -172,11 +173,11 @@ export function calcularMetricas(inscritos: InscritoRow[]): MetricasAdmin {
 export function gerarCSV(inscritos: InscritoRow[]): string {
   const header = [
     'Nome','E-mail','CPF','Sexo','Prova','Categoria',
-    'Camiseta','Bib','Lote','Valor (R$)','Pagamento','Status','Check-in','Data Inscrição'
+    'Camiseta','Modelo','Bib','Lote','Valor (R$)','Pagamento','Status','Check-in','Data Inscrição'
   ];
   const rows = inscritos.map(i => [
     i.nome, i.email, i.cpf, i.sexo, i.prova, i.categoria,
-    i.camiseta, i.bib_number ?? '',
+    i.camiseta, i.camiseta_modelo === 'babylook' ? 'Baby Look' : 'Unissex', i.bib_number ?? '',
     i.lote, ((i.preco_centavos ?? 0) / 100).toFixed(2).replace('.', ','),
     i.pagamento ?? '', i.status,
     i.checked_in_at ? new Date(i.checked_in_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '',

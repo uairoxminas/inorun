@@ -50,7 +50,7 @@ export default function AdminDashboard({ metricas, onRecarregar, loading }: Prop
     return () => { channelRef.current?.unsubscribe(); };
   }, []);
 
-  const camisetas = ['PP', 'P', 'M', 'G', 'GG', 'XG'];
+  const camisetas = ['PP', 'P', 'M', 'G', 'GG', 'XG', 'XGG'];
 
   return (
     <div className="space-y-6">

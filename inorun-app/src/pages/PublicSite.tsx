@@ -40,7 +40,7 @@ const KIT_ITEMS = [
   { item: 'Sacochila',         det: 'Para retirada do kit' },
 ];
 
-export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, totalInscritos, onEventoCarregado }: Props) {
+export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEventoCarregado }: Props) {
   const { d, h, m, s } = useCountdown();
   const [openFaq, setOpenFaq]   = useState<number | null>(null);
   const [evento, setEvento]     = useState<EventoData | null>(null);
@@ -104,8 +104,6 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, total
       .catch(console.error)
       .finally(() => setLoadingEvento(false));
   }, []);
-
-  const inscritos = evento?.totalInscritos ?? totalInscritos;
 
   // Provas por tipo (v2: corrida 5k, corrida 10k, kids, caminhada)
   // Resiliência: se tipo = null (migration 013 ainda não rodada no banco),
@@ -269,11 +267,6 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, total
                 👥 Inscrição em grupo
               </button>
             )}
-            <div className="text-sm text-brand-muted text-center sm:text-left">
-              <span className="font-display font-extrabold text-brand-purple" style={{ fontSize: 22 }}>
-                {inscritos.toLocaleString('pt-BR')}
-              </span>{' '}corredores já inscritos
-            </div>
           </div>
         </div>
         <div className="h-2 bg-gradient-brand-h" />
@@ -303,13 +296,13 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, total
               {race5k && (
                 <ProvaCard id="5km" km="5" label={race5k.label} tag="Iniciante"
                   desc={race5k.descricao}
-                  preco={lote5k?.preco_centavos ?? 8900}
+                  preco={lote5k?.preco_centavos ?? 9900}
                   onInscrever={onRegister} />
               )}
               {race10k && (
                 <ProvaCard id="10km" km="10" label={race10k.label} tag="Performance"
                   desc={race10k.descricao}
-                  preco={lote10k?.preco_centavos ?? 8900}
+                  preco={lote10k?.preco_centavos ?? 9900}
                   onInscrever={onRegister} />
               )}
             </div>
@@ -329,7 +322,7 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, total
                   <div className="text-right">
                     <div className="text-[10px] text-yellow-700">a partir de</div>
                     <div className="font-display font-extrabold text-[22px] text-yellow-700">
-                      {formataBRL(loteKids?.preco_centavos ?? 8900)}
+                      {formataBRL(loteKids?.preco_centavos ?? 5000)}
                     </div>
                   </div>
                 </div>
@@ -354,7 +347,7 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, total
                   <div className="text-right">
                     <div className="text-[10px] text-green-700">a partir de</div>
                     <div className="font-display font-extrabold text-[22px] text-green-700">
-                      {formataBRL(loteCaminhada?.preco_centavos ?? 8900)}
+                      {formataBRL(loteCaminhada?.preco_centavos ?? 9900)}
                     </div>
                   </div>
                 </div>
