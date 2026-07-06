@@ -595,7 +595,7 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
                   <strong>Artigo 1º.</strong> A corrida de rua <strong>INO RUN 2026 — Corrida InoLive</strong> será realizada no domingo, dia <strong>11 de outubro de 2026</strong>, na cidade de Paraopeba - MG, com participação de atletas de ambos os sexos, regularmente inscritos.
                 </p>
                 <p>
-                  <strong>Artigo 2º.</strong> A largada da prova ocorrerá impreterivelmente às <strong>07h00</strong>. Os atletas deverão estar presentes no local de largada com antecedência mínima de 45 minutos, portando o número de peito e o chip de cronometragem oficiais.
+                  <strong>Artigo 2º.</strong> A largada e a chegada ocorrerão <strong>na porta da academia INOLIVE</strong>, em Paraopeba - MG. A largada ocorrerá impreterivelmente às <strong>07h00</strong>. Os atletas deverão estar presentes no local com antecedência mínima de 45 minutos, portando o número de peito e o chip de cronometragem oficiais.
                 </p>
               </section>
 
@@ -616,45 +616,42 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
                   <strong>Artigo 4º.</strong> As inscrições serão realizadas exclusivamente pela plataforma online do evento, sendo o limite de vagas fixado em <strong>280 vagas para a prova de 5 km</strong> e <strong>160 vagas para a prova de 10 km</strong>.
                 </p>
                 <p>
-                  <strong>Artigo 5º.</strong> Os valores e prazos de lotes oficiais de inscrição seguem o cronograma abaixo:
+                  <strong>Artigo 5º.</strong> Os valores e prazos de inscrição seguem o cronograma abaixo. <strong>As inscrições encerram em 01/10/2026</strong> para todas as modalidades.
                 </p>
                   <table className="w-full text-sm text-left border-collapse">
                     <thead>
                       <tr className="border-b border-brand-lilac-mid">
                         <th className="p-2.5 text-brand-purple-dark">Modalidade</th>
-                        <th className="p-2.5 text-brand-purple-dark">Lote 1</th>
-                        <th className="p-2.5 text-brand-purple-dark">Lote 2</th>
-                        <th className="p-2.5 text-brand-purple-dark">Lote 3</th>
+                        <th className="p-2.5 text-brand-purple-dark">Lote 1 (até 15/08)</th>
+                        <th className="p-2.5 text-brand-purple-dark">Lote 2 (até 01/10)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-brand-lilac-mid">
                       <tr>
                         <td className="p-2.5 font-semibold">Corrida 5 km</td>
-                        <td className="p-2.5">R$ 89,00</td>
                         <td className="p-2.5">R$ 99,00</td>
                         <td className="p-2.5">R$ 109,00</td>
                       </tr>
                       <tr>
                         <td className="p-2.5 font-semibold">Corrida 10 km</td>
-                        <td className="p-2.5">R$ 89,00</td>
-                        <td className="p-2.5">R$ 99,00</td>
-                        <td className="p-2.5">R$ 109,00</td>
-                      </tr>
-                      <tr>
-                        <td className="p-2.5 font-semibold">Kids Geral (até 12 · 300m)</td>
-                        <td className="p-2.5">R$ 89,00</td>
                         <td className="p-2.5">R$ 99,00</td>
                         <td className="p-2.5">R$ 109,00</td>
                       </tr>
                       <tr>
                         <td className="p-2.5 font-semibold">Caminhada 5 km</td>
-                        <td className="p-2.5">R$ 89,00</td>
                         <td className="p-2.5">R$ 99,00</td>
                         <td className="p-2.5">R$ 109,00</td>
+                      </tr>
+                      <tr>
+                        <td className="p-2.5 font-semibold">Kids (até 12 · 300m)</td>
+                        <td className="p-2.5" colSpan={2}>R$ 50,00 · lote único</td>
                       </tr>
                     </tbody>
                   </table>
                   <p className="text-[12px] text-brand-muted mt-2">* Todos os valores acrescidos de R$ 5,00 de taxa de plataforma por inscrição.</p>
+                <p>
+                  <strong>Artigo 5º-A.</strong> <strong>Inscrição em grupo:</strong> grupos, assessorias e equipes com 10 (dez) atletas ou mais pagam <strong>R$ 89,00 por inscrição</strong> (válido para 5 km, 10 km e Caminhada), realizada em um único pagamento pelo responsável do grupo. A modalidade Kids não participa da inscrição em grupo.
+                </p>
                 <p>
                   <strong>Artigo 6º.</strong> O CPF do participante é obrigatório, servindo como identificador único. Não serão permitidas inscrições duplicadas do mesmo CPF no mesmo evento.
                 </p>
@@ -682,10 +679,10 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
               <section className="space-y-3">
                 <h2 className="font-display font-bold text-lg text-brand-purple-dark">CAPÍTULO V – RETIRADA DE KITS</h2>
                 <p>
-                  <strong>Artigo 9º.</strong> O kit oficial de participação do atleta compreende a camiseta dry-fit técnica exclusiva da prova, sacochila, número de peito e chip de cronometragem.
+                  <strong>Artigo 9º.</strong> O kit oficial de participação do atleta compreende a camiseta dry-fit técnica exclusiva da prova (disponível nos modelos <strong>Unissex</strong> e <strong>Baby Look</strong>), o número de peito e o chip de cronometragem.
                 </p>
                 <p>
-                  <strong>Artigo 10.</strong> A entrega de kits ocorrerá na véspera da prova em local e horários divulgados nas mídias oficiais. Para retirada, o atleta deve apresentar documento oficial com foto e o comprovante de pagamento. A retirada por terceiros exige autorização assinada e cópia do documento do titular.
+                  <strong>Artigo 10.</strong> A entrega de kits ocorrerá na <strong>INOLIVE</strong>, na <strong>semana da prova</strong>, em horários divulgados nas mídias oficiais. Para retirada, o atleta deve apresentar documento oficial com foto e o comprovante de pagamento. A retirada por terceiros exige autorização assinada e cópia do documento do titular.
                 </p>
               </section>
 
