@@ -496,10 +496,7 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
         <div className="section-wrap py-10 flex flex-wrap items-center justify-center gap-x-12 gap-y-4">
           <span className="text-[12px] text-brand-muted tracking-[0.2em] uppercase w-full text-center">Realização e patrocínio</span>
           <img src="/inolive.jpg" alt="INOLIVE"
-            className="h-12 md:h-14 w-auto rounded-lg object-contain" />
-          {['BRAVE', 'HIDRATA+', 'RUNCLUB', 'PARAOPEBA'].map(p => (
-            <span key={p} className="font-display font-bold italic text-[22px] text-brand-muted opacity-60">{p}</span>
-          ))}
+            className="h-16 md:h-20 w-auto rounded-lg object-contain" />
         </div>
       </section>
 
