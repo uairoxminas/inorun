@@ -423,7 +423,11 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
               <Eyebrow>Preço sobe por lote</Eyebrow>
               <h3 className="font-display font-extrabold italic uppercase text-[26px] mt-1.5 text-brand-ink">Lotes de inscrição</h3>
             </div>
-            <span className="badge-lot-active">⏰ Lote 1 encerra em 31/07</span>
+            {lote5k && (
+              <span className="badge-lot-active">
+                ⏰ {lote5k.nome} encerra em {new Date(lote5k.fecha_em).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+              </span>
+            )}
           </div>
 
           {!loadingEvento && race5k && (

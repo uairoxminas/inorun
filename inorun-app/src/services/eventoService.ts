@@ -95,9 +95,12 @@ export function getLoteAtivo(lots: PricingLot[], raceId: string): PricingLot | n
     .sort((a, b) => a.ordem - b.ordem)[0] ?? null;
 }
 
-// Todos os lotes de uma prova ordenados
+// Todos os lotes públicos de uma prova ordenados.
+// Exclui o lote interno "Grupo (10+)" (referência de preço do fluxo de grupo).
 export function getLotesDaProva(lots: PricingLot[], raceId: string): PricingLot[] {
-  return lots.filter(l => l.race_id === raceId).sort((a, b) => a.ordem - b.ordem);
+  return lots
+    .filter(l => l.race_id === raceId && l.nome !== 'Grupo (10+)')
+    .sort((a, b) => a.ordem - b.ordem);
 }
 
 // Valida cupom no Supabase e retorna o desconto em fração (0.10 = 10%)
