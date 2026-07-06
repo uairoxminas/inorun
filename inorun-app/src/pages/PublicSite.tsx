@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Logo from '../components/Logo';
+import StravaRoute from '../components/StravaRoute';
 import Eyebrow from '../components/ui/Eyebrow';
 import SectionTitle from '../components/ui/SectionTitle';
 import CountdownBox from '../components/ui/CountdownBox';
@@ -476,16 +477,9 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
               ))}
             </div>
           </div>
-          <div className="bg-brand-lilac rounded-2xl min-h-[240px] relative overflow-hidden flex items-center justify-center">
-            <svg viewBox="0 0 400 220" className="w-full h-full">
-              <path d="M20 180 Q 80 60 150 120 T 280 90 T 380 40" fill="none" stroke="#8417AE" strokeWidth="3.5" strokeLinecap="round" />
-              <circle cx="20" cy="180" r="7" fill="#5B0E7A" />
-              <circle cx="380" cy="40" r="7" fill="#A93FD0" />
-              <text x="20" y="200" fontSize="11" fill="#6E5E76" fontFamily="Inter">Largada</text>
-              <text x="345" y="35" fontSize="11" fill="#6E5E76" fontFamily="Inter">Chegada</text>
-            </svg>
-            <span className="absolute bottom-3 left-4 text-[12px] text-brand-muted">Mapa ilustrativo</span>
-          </div>
+          <StravaRoute
+            routeId="3508835983352422502"
+            routeUrl="https://www.strava.com/routes/3508835983352422502" />
         </div>
       </section>
 
