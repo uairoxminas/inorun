@@ -293,14 +293,14 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
               const sel  = f.race_id === raceKids.id;
               return (
                 <div>
-                  <div className="text-[12px] font-semibold text-brand-muted uppercase tracking-widest mb-2">🎖️ Kids · 7-12 anos · 300m</div>
+                  <div className="text-[12px] font-semibold text-brand-muted uppercase tracking-widest mb-2">🎖️ Kids · até 12 anos · 300m</div>
                   <button id="select-prova-kids"
                     onClick={() => handleRaceSelect(raceKids.id)}
                     className={`w-full flex items-center justify-between text-left p-5 rounded-2xl border-2 transition-all duration-150
                       ${sel ? 'bg-yellow-50 border-yellow-400 shadow-md' : 'bg-white border-yellow-200 hover:border-yellow-400'}`}>
                     <div>
                       <div className="font-display font-extrabold italic text-[22px] uppercase text-brand-ink">{raceKids.label}</div>
-                      <div className="text-[13px] text-brand-muted">7 a 12 anos · 300 metros · Todos ganham medalha e sobem ao pódio!</div>
+                      <div className="text-[13px] text-brand-muted">Até 12 anos · 300 metros · Todos ganham medalha e sobem ao pódio!</div>
                       <div className="mt-1 inline-block bg-yellow-400 text-yellow-900 text-[11px] font-bold px-2 py-0.5 rounded-full">
                         🏅 Todos os participantes são campeões
                       </div>
@@ -354,7 +354,7 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
             {/* Alerta Kids */}
             {f.modalidade === 'kids' && (
               <div className="bg-yellow-50 border border-yellow-300 rounded-xl px-4 py-3 text-[13px] text-yellow-800">
-                <strong>🎖️ Inscrição Kids (7-12 anos · 300 metros)</strong><br />
+                <strong>🎖️ Inscrição Kids (até 12 anos · 300 metros)</strong><br />
                 Preencha os dados da criança. Use o campo "Contato de emergência" para informar o responsável legal (nome e telefone).
                 A categoria Kids é automaticamente "Kids Geral" — todos ganham medalha!
               </div>
@@ -386,7 +386,7 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
               <div>
                 <label className="label">
                   Data de Nascimento
-                  {f.modalidade === 'kids' && <span className="text-yellow-600 ml-1">(7-12 anos)</span>}
+                  {f.modalidade === 'kids' && <span className="text-yellow-600 ml-1">(até 12 anos)</span>}
                   {f.modalidade === 'corrida' && <span className="text-brand-muted ml-1">(mín. 13 anos)</span>}
                 </label>
                 <input id="input-nasc" type="date" className={`input ${idadeErro ? 'border-red-400 focus:ring-red-400' : ''}`}
@@ -445,7 +445,7 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
                 <div className="text-[13px] text-yellow-700">Categoria especial</div>
                 <div className="font-display font-extrabold italic text-[32px] text-yellow-600 mt-1">🎖️ Kids Geral</div>
                 <div className="text-[12px] text-yellow-700 mt-0.5 font-medium">
-                  Todos os participantes de 7 a 12 anos ganham medalha e sobem ao pódio! (300 metros)
+                  Todos os participantes de até 12 anos ganham medalha e sobem ao pódio! (300 metros)
                 </div>
               </div>
             ) : f.modalidade === 'caminhada' ? (

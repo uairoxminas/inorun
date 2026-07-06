@@ -25,12 +25,12 @@ interface Props {
 }
 
 const FAQ_ITEMS = [
-  { q: 'Como funciona a retirada do kit?',    a: 'A retirada acontece nos dias que antecedem a prova, mediante documento com foto e comprovante de inscrição.' },
-  { q: 'Como são definidas as categorias?',   a: 'Corrida 5 km e 10 km: masculino e feminino com premiação por faixa etária — Sub-20 (13-19), 20-29, 30-39, 40-49 e 50+. Kids Geral (7-12 anos · 300 metros): todos ganham medalha. Caminhada 5 km: todos ganham medalha. A categoria é calculada pela idade na data da prova (11/10/2026).' },
+  { q: 'Como funciona a retirada do kit?',    a: 'A retirada será na INOLIVE, na semana da prova, mediante documento com foto e comprovante de inscrição.' },
+  { q: 'Como são definidas as categorias?',   a: 'Corrida 5 km e 10 km: masculino e feminino com premiação por faixa etária — Sub-20 (13-19), 20-29, 30-39, 40-49 e 50+. Kids Geral (até 12 anos · 300 metros): todos ganham medalha. Caminhada 5 km: todos ganham medalha. A categoria é calculada pela idade na data da prova (11/10/2026).' },
   { q: 'Posso me inscrever em grupo?',         a: 'Sim! Grupos, assessorias e equipes com 10 atletas ou mais têm valor especial de R$89 por inscrição. O responsável cadastra todos de uma vez e paga em um único Pix. Use o botão "Inscrição em grupo".' },
   { q: 'O pagamento via Pix confirma na hora?', a: 'Sim. A confirmação por Pix é automática e o número de peito é gerado em seguida.' },
   { q: 'Posso transferir minha inscrição?',   a: 'Sim, transferências são permitidas até 15 dias antes do evento pelo painel do atleta.' },
-  { q: 'Como funciona a prova Kids?',          a: 'A prova Kids é uma corrida de 300 metros para crianças de 7 a 12 anos. Todos os participantes ganham medalha e sobem ao pódio — não há classificação competitiva, só celebração!' },
+  { q: 'Como funciona a prova Kids?',          a: 'A prova Kids é uma corrida de 300 metros para crianças de até 12 anos. Todos os participantes ganham medalha e sobem ao pódio — não há classificação competitiva, só celebração!' },
   { q: 'A caminhada tem cronometragem?',       a: 'Não. A Caminhada é de 5 km, inclusiva e sem cronometragem competitiva. Todos os participantes ganham medalha e sobem ao pódio!' },
 ];
 
@@ -314,7 +314,7 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
                 className="text-left p-5 rounded-2xl border-2 border-yellow-400 bg-yellow-50 hover:shadow-md transition-all duration-150 group">
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <span className="text-[11px] font-bold tracking-widest uppercase text-yellow-700">🎖️ Kids · 7-12 anos · 300m</span>
+                    <span className="text-[11px] font-bold tracking-widest uppercase text-yellow-700">🎖️ Kids · até 12 anos · 300m</span>
                     <div className="font-display font-extrabold italic text-[26px] uppercase text-yellow-800 leading-none mt-0.5">
                       {raceKids?.label ?? 'Kids - 300 metros'}
                     </div>
@@ -327,7 +327,7 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
                   </div>
                 </div>
                 <p className="text-[13px] text-yellow-800 leading-relaxed">
-                  {raceKids?.descricao || 'Corrida de 300 metros para crianças de 7 a 12 anos. Todos sobem ao pódio — não há classificação, só celebração!'}
+                  {raceKids?.descricao || 'Corrida de 300 metros para crianças de até 12 anos. Todos sobem ao pódio — não há classificação, só celebração!'}
                 </p>
                 <div className="mt-3 inline-block bg-yellow-400 text-yellow-900 text-[11px] font-bold px-3 py-1 rounded-full">
                   🏅 Todos ganham medalha!
@@ -373,7 +373,7 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
                 <strong>Masc. e Fem.</strong> · Sub-20 · 20-29 · 30-39 · 40-49 · 50+
               </div>
               <div>
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-brand-muted block mb-1">🎖️ Kids (7-12 anos · 300m)</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-brand-muted block mb-1">🎖️ Kids (até 12 anos · 300m)</span>
                 <strong className="text-yellow-700">Kids Geral</strong> · Todos ganham medalha!
               </div>
               <div>
@@ -642,7 +642,7 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
                         <td className="p-2.5">R$ 109,00</td>
                       </tr>
                       <tr>
-                        <td className="p-2.5 font-semibold">Kids Geral (7-12 · 300m)</td>
+                        <td className="p-2.5 font-semibold">Kids Geral (até 12 · 300m)</td>
                         <td className="p-2.5">R$ 89,00</td>
                         <td className="p-2.5">R$ 99,00</td>
                         <td className="p-2.5">R$ 109,00</td>
@@ -670,7 +670,7 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
                   <span className="font-semibold block mt-1 text-brand-purple">Sub-20 (13-19 anos) · 20-29 · 30-39 · 40-49 · 50+</span>
                 </p>
                 <p>
-                  <strong>Artigo 7º-A.</strong> A modalidade <strong>Kids Geral</strong> (7 a 12 anos · <strong>300 metros</strong>) é não-competitiva: todos os participantes que completarem o percurso recebem medalha de participação e sobem ao pódio. Não há classificação por posição nesta categoria.
+                  <strong>Artigo 7º-A.</strong> A modalidade <strong>Kids Geral</strong> (até 12 anos · <strong>300 metros</strong>) é não-competitiva: todos os participantes que completarem o percurso recebem medalha de participação e sobem ao pódio. Não há classificação por posição nesta categoria.
                 </p>
                 <p>
                   <strong>Artigo 7º-B.</strong> A modalidade <strong>Caminhada 5 km</strong> (idade livre) é não-cronometrada. <strong>Todos os participantes recebem medalha e sobem ao pódio.</strong> Esta modalidade não integra o ranking geral de corrida.

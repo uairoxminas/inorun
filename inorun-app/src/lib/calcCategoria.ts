@@ -3,7 +3,7 @@
 // Regra: categoria derivada de sexo + idade na DATA DA PROVA (11/10/2026), nunca na data de inscrição
 //
 // CATEGORIAS v2 — INO RUN 2026:
-//   Kids Geral      → 7 a 12 anos (300 metros, todos ganham medalha)
+//   Kids Geral      → até 12 anos (300 metros, todos ganham medalha)
 //   Caminhada       → qualquer idade (5 km apenas, sem cronometragem competitiva)
 //   M/F Sub-20      → 13 a 19 anos
 //   M/F 20-29       → 20 a 29 anos
@@ -48,7 +48,7 @@ export function calcIdadeNaProva(nascimento: Date): number {
  *
  * Corrida (faixas v2):
  *   Sub-20 (13-19) / 20-29 / 30-39 / 40-49 / 50+
- *   Abaixo de 7 ou entre 7-12 em prova de corrida → retorna "Inválido" (usar modalidade kids)
+ *   Menor de 13 em prova de corrida → retorna "Kids Geral" (usar modalidade kids, até 12 anos)
  *
  * @param nascimento - data de nascimento do atleta
  * @param sexo - 'M' ou 'F'
@@ -65,11 +65,8 @@ export function calcCategoria(
 
   const idade = calcIdadeNaProva(nascimento);
 
-  // Fora das faixas válidas para corrida
-  if (idade < 13) {
-    if (idade >= 7) return 'Kids Geral'; // sugere modalidade correta
-    return 'Inválido'; // menor de 7 anos não pode participar
-  }
+  // Menor de 13 em prova de corrida → sugere a categoria Kids (até 12 anos)
+  if (idade < 13) return 'Kids Geral';
 
   let faixa: string;
   if (idade <= 19)      faixa = 'Sub-20';
@@ -92,7 +89,6 @@ export function validaIdadeModalidade(
   const idade = calcIdadeNaProva(nascimento);
 
   if (modalidade === 'kids') {
-    if (idade < 7)  return { valido: false, motivo: 'Idade mínima para Kids é 7 anos na data da prova (11/10/2026).' };
     if (idade > 12) return { valido: false, motivo: 'Categoria Kids é para até 12 anos na data da prova. Escolha a prova de corrida.' };
     return { valido: true };
   }
@@ -103,7 +99,7 @@ export function validaIdadeModalidade(
   }
 
   // corrida
-  if (idade < 13) return { valido: false, motivo: 'Idade mínima para a corrida é 13 anos (11/10/2026). Crianças de 7-12 anos devem se inscrever na categoria Kids.' };
+  if (idade < 13) return { valido: false, motivo: 'Idade mínima para a corrida é 13 anos (11/10/2026). Crianças de até 12 anos devem se inscrever na categoria Kids.' };
   return { valido: true };
 }
 
