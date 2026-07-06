@@ -38,7 +38,6 @@ const KIT_ITEMS = [
   { item: 'Camiseta técnica',  det: 'Tecido dry-fit com identidade Ino Run' },
   { item: 'Medalha finisher',  det: 'Entregue na linha de chegada' },
   { item: 'Número de peito',   det: 'Com chip de cronometragem' },
-  { item: 'Sacochila',         det: 'Para retirada do kit' },
 ];
 
 export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEventoCarregado }: Props) {
