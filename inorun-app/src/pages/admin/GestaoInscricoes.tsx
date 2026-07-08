@@ -29,6 +29,16 @@ function Badge({ status }: { status: string }) {
 export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: Props) {
   const [busca, setBusca]               = useState('');
   const [filtroStatus, setFiltroStatus] = useState('todos');
+  const [testFone, setTestFone]         = useState('');
+  const [testMsg, setTestMsg]           = useState('Olá! Esta é uma mensagem de teste do painel administrativo INO RUN 2026. 🏃');
+
+  const getWhatsAppLink = (tel: string, msg: string) => {
+    let clean = tel.replace(/\D/g, '');
+    if (clean.length === 10 || clean.length === 11) {
+      clean = '55' + clean;
+    }
+    return `https://wa.me/${clean}?text=${encodeURIComponent(msg)}`;
+  };
   const [filtroProva, setFiltroProva]   = useState('todos');
   const [atleta, setAtleta]             = useState<InscritoRow | null>(null);
   const [modoEdicao, setModoEdicao]     = useState(false);
@@ -66,17 +76,35 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
   const paginas  = Math.ceil(filtrados.length / POR_PAG);
   const paginados = filtrados.slice((pag - 1) * POR_PAG, pag * POR_PAG);
 
-  const abrirDrawer = (r: InscritoRow) => {
+  const abrirDrawer = async (r: InscritoRow) => {
     setAtleta(r);
     setModoEdicao(false);
     setEErro('');
+
+    // Se o telefone não veio na view (ex: migração pendente no banco), busca dinamicamente do atleta
+    if (!r.telefone) {
+      try {
+        const { data, error } = await supabase
+          .from('registration')
+          .select('athlete(telefone)')
+          .eq('id', r.registration_id)
+          .single();
+        if (data && !error) {
+          const athlete = data.athlete as any;
+          const tel = athlete?.telefone || '';
+          setAtleta(prev => prev && prev.registration_id === r.registration_id ? { ...prev, telefone: tel } : prev);
+        }
+      } catch (err) {
+        console.warn('Erro ao buscar telefone do atleta:', err);
+      }
+    }
   };
 
   const iniciarEdicao = () => {
     if (!atleta) return;
     setENome(atleta.nome);
     setEEmail(atleta.email);
-    setETelefone('');
+    setETelefone(atleta.telefone ?? '');
     setECamiseta(atleta.camiseta);
     setEStatus(atleta.status);
     setEErro('');
@@ -97,7 +125,7 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
     if (res.ok) {
       await onRecarregar();
       // Atualiza o atleta local com os novos dados
-      setAtleta({ ...atleta, nome: eNome, email: eEmail, camiseta: eCamiseta, status: eStatus });
+      setAtleta({ ...atleta, nome: eNome, email: eEmail, telefone: eTelefone, camiseta: eCamiseta, status: eStatus });
       setModoEdicao(false);
     } else {
       setEErro(res.erro ?? 'Erro ao salvar');
@@ -202,6 +230,62 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
           className="btn-primary text-[13px] py-2 px-4">
           Exportar CSV ({filtrados.length})
         </button>
+      </div>
+
+      {/* Seção Informativa & Simulador de Testes do WhatsApp */}
+      <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 shadow-sm">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xl">🟢</span>
+          <h4 className="font-display font-bold text-[16px] text-emerald-800 uppercase tracking-wide">
+            Funcionalidade: Comunicação via WhatsApp
+          </h4>
+        </div>
+        <p className="text-[13px] text-emerald-700 leading-relaxed mb-4">
+          <strong>Objetivo:</strong> Enviar mensagens rápidas de suporte aos atletas diretamente pelo painel (alertas de pagamento Pix pendente, avisos de confirmação ou retirada de kit).<br />
+          <strong>Como usar:</strong> Clique em <strong>"Ver / Editar"</strong> na ficha de qualquer atleta na tabela abaixo e clique no botão <strong>"Conversar no WhatsApp"</strong> para abrir a janela de chat com mensagem pré-definida de acordo com os dados do atleta.<br />
+          <strong>Como Testar de Forma Prática:</strong> Use o simulador abaixo para enviar uma mensagem de teste com seu próprio número!
+        </p>
+
+        {/* Simulador rápido de testes */}
+        <div className="bg-white border border-emerald-100 rounded-xl p-4">
+          <span className="text-[11px] font-bold uppercase tracking-widest text-brand-muted block mb-3">
+            🧪 Área de Teste Prático (Simulador)
+          </span>
+          <div className="flex flex-wrap gap-3 items-end">
+            <div className="flex-1 min-w-[200px]">
+              <label className="label text-[11px] mb-1">Telefone para teste (com DDD)</label>
+              <input
+                id="whatsapp-test-phone"
+                type="text"
+                className="input py-2 text-[13px]"
+                placeholder="Ex: 48996459791"
+                value={testFone}
+                onChange={e => setTestFone(e.target.value)}
+              />
+            </div>
+            <div className="flex-[2] min-w-[300px]">
+              <label className="label text-[11px] mb-1">Mensagem personalizada de teste</label>
+              <textarea
+                id="whatsapp-test-message"
+                className="input py-2 text-[13px] h-10 resize-none"
+                placeholder="Escreva a mensagem aqui..."
+                value={testMsg}
+                onChange={e => setTestMsg(e.target.value)}
+              />
+            </div>
+            <a
+              id="btn-whatsapp-test-send"
+              href={getWhatsAppLink(testFone, testMsg)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`py-2.5 px-5 rounded-xl font-bold text-[13px] text-white flex items-center gap-2 transition-all duration-200 ${
+                testFone.replace(/\D/g, '') ? 'bg-[#25D366] hover:bg-[#20ba5a] cursor-pointer' : 'bg-gray-300 text-gray-500 cursor-not-allowed pointer-events-none'
+              }`}
+            >
+              🚀 Enviar Teste
+            </a>
+          </div>
+        </div>
       </div>
 
       {/* Filtros */}
@@ -342,6 +426,7 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
                     {[
                       ['Nome',       atleta.nome],
                       ['E-mail',     atleta.email],
+                      ['Telefone',   atleta.telefone ?? '—'],
                       ['CPF',        atleta.cpf ? atleta.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '***.$2.$3-**') : '—'],
                       ['Sexo',       atleta.sexo === 'M' ? 'Masculino' : 'Feminino'],
                       ['Prova',      `${atleta.distancia} km`],
@@ -412,6 +497,27 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
 
                   {/* Ações */}
                   <div className="space-y-2">
+                    {atleta.telefone ? (
+                      <a
+                        id="btn-whatsapp-atleta"
+                        href={getWhatsAppLink(atleta.telefone, `Olá, ${atleta.nome}! Entramos em contato referente à sua inscrição na prova de ${atleta.distancia} km do INO RUN 2026.`)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full py-3 rounded-xl bg-[#25D366] hover:bg-[#20ba5a] text-white font-semibold text-[14px] transition-colors flex items-center justify-center gap-2"
+                      >
+                        <svg viewBox="0 0 32 32" className="w-5 h-5 fill-white">
+                          <path d="M16 .5C7.44.5.5 7.44.5 16c0 2.77.72 5.37 1.98 7.63L.5 31.5l8.1-2.12A15.43 15.43 0 0 0 16 31.5C24.56 31.5 31.5 24.56 31.5 16S24.56.5 16 .5zm0 28.18a13.6 13.6 0 0 1-6.93-1.9l-.5-.3-5.18 1.36 1.38-5.04-.33-.52A13.62 13.62 0 0 1 16 2.32c7.54 0 13.68 6.14 13.68 13.68S23.54 29.68 16 29.68zM23.1 19.3c-.38-.19-2.24-1.1-2.59-1.23-.34-.12-.59-.19-.84.19s-.97 1.23-1.19 1.48c-.22.26-.43.29-.81.1-.38-.19-1.62-.6-3.09-1.91-1.14-1.02-1.91-2.27-2.13-2.65-.22-.38-.02-.58.17-.77.17-.17.38-.44.57-.66.19-.22.25-.38.38-.63.13-.26.06-.48-.03-.67-.1-.19-.84-2.04-1.16-2.79-.3-.73-.62-.63-.84-.64h-.72c-.25 0-.66.09-.1 1.03 0 0 .84 2.01 1.93 3.04 1.09 1.03 4.5 3.07 4.5 3.07.77.33 1.5.44 2.09.38.65-.07 2-.82 2.28-1.6.28-.79.28-1.46.2-1.6-.08-.13-.3-.21-.68-.4z"/>
+                        </svg>
+                        Conversar no WhatsApp
+                      </a>
+                    ) : (
+                      <button
+                        disabled
+                        className="w-full py-3 rounded-xl bg-gray-100 text-gray-400 font-semibold text-[14px] cursor-not-allowed flex items-center justify-center gap-2"
+                      >
+                        🚫 Sem telefone cadastrado
+                      </button>
+                    )}
                     <button id="btn-editar-inscricao" onClick={iniciarEdicao}
                       className="w-full py-3 rounded-xl bg-brand-purple text-white font-semibold text-[14px] hover:bg-brand-purple-dark transition-colors">
                       ✏️ Editar inscrição

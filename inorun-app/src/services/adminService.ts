@@ -32,6 +32,7 @@ export interface InscritoRow {
   comprovante_mime?: string | null;
   gemini_motivo?: string | null;
   gemini_resultado?: string | null;
+  telefone?: string; // Telefone do atleta cadastrado
 }
 
 export interface MetricasAdmin {
