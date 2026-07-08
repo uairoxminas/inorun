@@ -118,7 +118,7 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
   const raceCaminhada = evento?.races.find(r => r.tipo === 'caminhada');
   const lote5k      = race5k      ? getLoteAtivo(evento!.lots, race5k.id)      : null;
   const lote10k     = race10k     ? getLoteAtivo(evento!.lots, race10k.id)     : null;
-  const loteKids    = raceKids    ? getLoteAtivo(evento!.lots, raceKids.id)    : null;
+  // loteKids: Kids é gratuito — preço não exibido no card público
   const loteCaminhada = raceCaminhada ? getLoteAtivo(evento!.lots, raceCaminhada.id) : null;
 
   // Filtro de categorias dinâmico — derivado dos resultados carregados do banco
@@ -180,8 +180,6 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
               {[
                 { label: 'Provas',    href: '#provas' },
                 { label: 'Percurso', href: '#percurso' },
-                { label: 'Kit',      href: '#kit' },
-                { label: 'FAQ',      href: '#faq' },
               ].map(item => (
                 <a key={item.label} href={item.href}
                   onClick={() => setMenuAberto(false)}
@@ -320,17 +318,23 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-[10px] text-yellow-700">a partir de</div>
-                    <div className="font-display font-extrabold text-[22px] text-yellow-700">
-                      {formataBRL(loteKids?.preco_centavos ?? 5000)}
+                    <div className="text-[10px] text-yellow-700">inscrição</div>
+                    <div className="font-display font-extrabold text-[22px] text-green-600">
+                      Gratuita 🎖️
                     </div>
+                    <div className="text-[10px] text-yellow-600">+ R$5,00 taxa</div>
                   </div>
                 </div>
                 <p className="text-[13px] text-yellow-800 leading-relaxed">
                   {raceKids?.descricao || 'Corrida de 300 metros para crianças de até 12 anos. Todos sobem ao pódio — não há classificação, só celebração!'}
                 </p>
-                <div className="mt-3 inline-block bg-yellow-400 text-yellow-900 text-[11px] font-bold px-3 py-1 rounded-full">
-                  🏅 Todos ganham medalha!
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span className="inline-block bg-yellow-400 text-yellow-900 text-[11px] font-bold px-3 py-1 rounded-full">
+                    🏅 Todos ganham medalha!
+                  </span>
+                  <span className="inline-block bg-white border border-yellow-300 text-yellow-700 text-[11px] font-medium px-3 py-1 rounded-full">
+                    👕 Sem camiseta
+                  </span>
                 </div>
               </button>
 
@@ -644,7 +648,10 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
                       </tr>
                       <tr>
                         <td className="p-2.5 font-semibold">Kids (até 12 · 300m)</td>
-                        <td className="p-2.5" colSpan={2}>R$ 50,00 · lote único</td>
+                        <td className="p-2.5" colSpan={2}>
+                          <span className="text-green-600 font-bold">Gratuita</span>
+                          <span className="text-brand-muted text-[12px] ml-1">(apenas R$5,00 de taxa · sem camiseta · inclui medalha)</span>
+                        </td>
                       </tr>
                     </tbody>
                   </table>
@@ -679,7 +686,7 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
               <section className="space-y-3">
                 <h2 className="font-display font-bold text-lg text-brand-purple-dark">CAPÍTULO V – RETIRADA DE KITS</h2>
                 <p>
-                  <strong>Artigo 9º.</strong> O kit oficial de participação do atleta compreende a camiseta dry-fit técnica exclusiva da prova (disponível nos modelos <strong>Unissex</strong> e <strong>Baby Look</strong>), o número de peito e o chip de cronometragem.
+                  <strong>Artigo 9º.</strong> O kit oficial de participação do atleta compreende a camiseta dry-fit técnica exclusiva da prova (disponível nos modelos <strong>Unissex</strong> e <strong>Baby Look</strong>), o número de peito e o chip de cronometragem. <strong>A modalidade Kids Geral não inclui camiseta</strong> — apenas a <strong>medalha de participação</strong>, que é entregue a todos os participantes.
                 </p>
                 <p>
                   <strong>Artigo 10.</strong> A entrega de kits ocorrerá na <strong>INOLIVE</strong>, na <strong>semana da prova</strong>, em horários divulgados nas mídias oficiais. Para retirada, o atleta deve apresentar documento oficial com foto e o comprovante de pagamento. A retirada por terceiros exige autorização assinada e cópia do documento do titular.

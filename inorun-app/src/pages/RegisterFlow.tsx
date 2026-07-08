@@ -10,11 +10,23 @@ import { validaCPF, formataCPF } from '../lib/validaCPF';
 import { formataBRL } from '../lib/precoLoteAtual';
 import { tamanhosDisponiveis } from '../lib/camisetas';
 import { getEventoPublico, getLoteAtivo, validarCupom } from '../services/eventoService';
-import { criarInscricaoPendente } from '../services/inscricaoService';
+import { criarInscricaoPendente, buscarInscricaoPendente } from '../services/inscricaoService';
 import type { EventoData } from '../services/eventoService';
 import type { ResultadoInscricao, InscricaoPendente } from '../services/inscricaoService';
 import PixPaymentScreen from '../components/PixPaymentScreen';
 import TabelaMedidasModal from '../components/TabelaMedidasModal';
+
+// ── Persistência local da inscrição PIX pendente ─────────────────────────────
+const LS_KEY = 'inorun_pix_pendente';
+function salvarPixLocal(p: InscricaoPendente) {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(p)); } catch { /* ignore */ }
+}
+function limparPixLocal() {
+  try { localStorage.removeItem(LS_KEY); } catch { /* ignore */ }
+}
+function lerPixLocal(): InscricaoPendente | null {
+  try { const v = localStorage.getItem(LS_KEY); return v ? JSON.parse(v) : null; } catch { return null; }
+}
 
 interface Props { onBack: () => void; onDone: () => void; }
 
@@ -58,10 +70,33 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
     camiseta: '', camiseta_modelo: 'unissex', cupom: '', pag: 'pix', termo: false,
   });
   const [verTabela, setVerTabela] = useState(false);
+  const [verTermo, setVerTermo]   = useState(false);
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF(p => ({ ...p, [k]: v }));
 
   useEffect(() => {
     getEventoPublico().then(setEvento).finally(() => setLoading(false));
+
+    // ── Retomar PIX pendente ─────────────────────────────────────────────────
+    // 1) Via URL: ?pix=<registration_id> (link do e-mail)
+    const urlParams = new URLSearchParams(window.location.search);
+    const pixId = urlParams.get('pix');
+
+    if (pixId) {
+      // Busca no Supabase os dados da inscrição
+      buscarInscricaoPendente(pixId).then(pendente => {
+        if (pendente) {
+          setPixPendente(pendente);
+          salvarPixLocal(pendente); // sincroniza localStorage
+        }
+      }).catch(() => { /* silencioso */ });
+      // Limpa o parâmetro da URL sem recarregar
+      window.history.replaceState({}, '', window.location.pathname);
+      return;
+    }
+
+    // 2) Via localStorage: usuário saiu e voltou sem limpar cache
+    const local = lerPixLocal();
+    if (local) setPixPendente(local);
   }, []);
 
   const race    = evento?.races.find(r => r.id === f.race_id);
@@ -115,7 +150,8 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
     2: !!f.nome && !!f.cpf && !!f.nasc && !!f.email && !!f.tel && !!f.emergencia &&
        !cpfErro && !idadeErro &&
        (!sexoObrigatorio || !!f.sexo),
-    3: !!f.camiseta,
+    // Kids não tem camiseta — step 3 avança sem seleção de tamanho
+    3: f.modalidade === 'kids' ? true : !!f.camiseta,
     4: f.termo,
   };
 
@@ -150,8 +186,9 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
           lot_id:                   loteAtual.id,
           event_id:                 evento.id,
           modalidade:               f.modalidade as Modalidade,
-          camiseta:                 f.camiseta as 'PP' | 'P' | 'M' | 'G' | 'GG' | 'XG' | 'XGG' | '4' | '6' | '8' | '10' | '12' | '14',
-          camiseta_modelo:          f.camiseta_modelo,
+          // Kids não inclui camiseta — envia null
+          camiseta:                 f.modalidade === 'kids' ? null : (f.camiseta as 'PP' | 'P' | 'M' | 'G' | 'GG' | 'XG' | 'XGG' | '4' | '6' | '8' | '10' | '12' | '14'),
+          camiseta_modelo:          f.modalidade === 'kids' ? null : f.camiseta_modelo,
           cupom_id:                 cupomInfo?.id,
           valor_centavos:           valorInscricao,
           taxa_plataforma_centavos: TAXA_PLATAFORMA,
@@ -160,6 +197,7 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
         { label: race.label }
       );
       setPixPendente(pendente);
+      salvarPixLocal(pendente); // persiste para caso o usuário saia e volte
       setStep(4.5 as unknown as number); // tela intermediaria Pix
     } catch (err: unknown) {
       setErroEnvio(err instanceof Error ? err.message : 'Erro inesperado. Tente novamente.');
@@ -169,6 +207,7 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
   };
 
   const handlePixConfirmado = (res: ResultadoInscricao) => {
+    limparPixLocal(); // inscrição concluída — remove do localStorage
     setResultado(res);
     setPixPendente(null);
     setStep(5);
@@ -203,7 +242,7 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between">
           <button
-            onClick={pixPendente ? () => { setPixPendente(null); setStep(4); } : step === 1 ? onBack : () => setStep(s => s - 1)}
+            onClick={pixPendente ? () => { limparPixLocal(); setPixPendente(null); setStep(4); } : step === 1 ? onBack : () => setStep(s => s - 1)}
             className="btn-ghost">
             {pixPendente ? '← Cancelar Pix' : step === 1 ? '← Voltar ao site' : '← Voltar'}
           </button>
@@ -447,6 +486,11 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
                 <div className="text-[12px] text-yellow-700 mt-0.5 font-medium">
                   Todos os participantes de até 12 anos ganham medalha e sobem ao pódio! (300 metros)
                 </div>
+                <div className="mt-3 flex gap-2 flex-wrap">
+                  <span className="inline-flex items-center gap-1 bg-yellow-400 text-yellow-900 text-[11px] font-bold px-2.5 py-1 rounded-full">🏅 Medalha para todos</span>
+                  <span className="inline-flex items-center gap-1 bg-white border border-yellow-300 text-yellow-700 text-[11px] font-medium px-2.5 py-1 rounded-full">👕 Sem camiseta</span>
+                  <span className="inline-flex items-center gap-1 bg-green-100 border border-green-300 text-green-700 text-[11px] font-bold px-2.5 py-1 rounded-full">✅ Inscrição gratuita</span>
+                </div>
               </div>
             ) : f.modalidade === 'caminhada' ? (
               <div className="bg-green-50 border border-green-400 rounded-2xl p-5">
@@ -466,51 +510,52 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
               </div>
             )}
 
-            {/* Modelo da camiseta */}
-            <div>
-              <label className="label">Modelo da camiseta</label>
-              <div className="grid grid-cols-2 gap-3">
-                {([
-                  { id: 'unissex',  emoji: '👕', nome: 'Unissex', det: 'Com manga' },
-                  { id: 'babylook', emoji: '👚', nome: 'Baby Look', det: 'Modelagem feminina' },
-                ] as const).map(m => (
-                  <button key={m.id} id={`select-modelo-${m.id}`}
-                    onClick={() => setF(p => {
-                      const validos = tamanhosDisponiveis(p.modalidade, m.id);
-                      return { ...p, camiseta_modelo: m.id, camiseta: validos.includes(p.camiseta) ? p.camiseta : '' };
-                    })}
-                    className={`text-left p-4 rounded-xl border-2 transition-all duration-150
-                      ${f.camiseta_modelo === m.id ? 'bg-brand-purple text-white border-brand-purple' : 'bg-white text-brand-ink border-brand-lilac-mid hover:border-brand-purple'}`}>
-                    <div className="text-[18px]">{m.emoji}</div>
-                    <div className="font-display font-bold text-[16px] leading-tight mt-1">{m.nome}</div>
-                    <div className={`text-[11px] ${f.camiseta_modelo === m.id ? 'text-white/80' : 'text-brand-muted'}`}>{m.det}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
+            {/* Modelo da camiseta — oculto para Kids (sem camiseta) */}
+            {f.modalidade !== 'kids' && (
+              <>
+                <div>
+                  <label className="label">Modelo da camiseta</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {([
+                      { id: 'unissex',  emoji: '👕', nome: 'Unissex', det: 'Com manga' },
+                      { id: 'babylook', emoji: '👚', nome: 'Baby Look', det: 'Modelagem feminina' },
+                    ] as const).map(m => (
+                      <button key={m.id} id={`select-modelo-${m.id}`}
+                        onClick={() => setF(p => {
+                          const validos = tamanhosDisponiveis(p.modalidade, m.id);
+                          return { ...p, camiseta_modelo: m.id, camiseta: validos.includes(p.camiseta) ? p.camiseta : '' };
+                        })}
+                        className={`text-left p-4 rounded-xl border-2 transition-all duration-150
+                          ${f.camiseta_modelo === m.id ? 'bg-brand-purple text-white border-brand-purple' : 'bg-white text-brand-ink border-brand-lilac-mid hover:border-brand-purple'}`}>
+                        <div className="text-[18px]">{m.emoji}</div>
+                        <div className="font-display font-bold text-[16px] leading-tight mt-1">{m.nome}</div>
+                        <div className={`text-[11px] ${f.camiseta_modelo === m.id ? 'text-white/80' : 'text-brand-muted'}`}>{m.det}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-            <div>
-              <div className="flex items-center justify-between">
-                <label className="label mb-0">Tamanho da camiseta</label>
-                <button type="button" id="btn-ver-tabela-medidas" onClick={() => setVerTabela(true)}
-                  className="text-[12px] text-brand-purple font-semibold underline hover:text-brand-purple-dark">
-                  📏 Ver tabela de medidas
-                </button>
-              </div>
-              {f.modalidade === 'kids' && (
-                <p className="text-[12px] text-brand-muted mb-2 mt-1">Tamanhos infantis (8, 10, 12) + adulto pequeno (PP, P)</p>
-              )}
-              <div className="flex flex-wrap gap-2 mt-2">
-                {tamanhosDisponiveis(f.modalidade, f.camiseta_modelo).map(c => (
-                  <button key={c} id={`select-camiseta-${c}`}
-                    onClick={() => set('camiseta', c)}
-                    className={`w-14 py-3 rounded-xl font-display font-bold text-[16px] border-2 transition-all duration-150
-                      ${f.camiseta === c ? 'bg-brand-purple text-white border-brand-purple' : 'bg-white text-brand-ink border-brand-lilac-mid hover:border-brand-purple'}`}>
-                    {c}
-                  </button>
-                ))}
-              </div>
-            </div>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <label className="label mb-0">Tamanho da camiseta</label>
+                    <button type="button" id="btn-ver-tabela-medidas" onClick={() => setVerTabela(true)}
+                      className="text-[12px] text-brand-purple font-semibold underline hover:text-brand-purple-dark">
+                      📏 Ver tabela de medidas
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {tamanhosDisponiveis(f.modalidade, f.camiseta_modelo).map(c => (
+                      <button key={c} id={`select-camiseta-${c}`}
+                        onClick={() => set('camiseta', c)}
+                        className={`w-14 py-3 rounded-xl font-display font-bold text-[16px] border-2 transition-all duration-150
+                          ${f.camiseta === c ? 'bg-brand-purple text-white border-brand-purple' : 'bg-white text-brand-ink border-brand-lilac-mid hover:border-brand-purple'}`}>
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
 
             <div>
               <label className="label">Cupom de desconto (opcional)</label>
@@ -540,7 +585,13 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
           <div className="mt-6 grid gap-5">
             <div className={`rounded-2xl p-5 border-2 ${modConf ? modConf.cor : 'bg-white border-brand-lilac-mid'}`}>
               <div className="text-[14px] text-brand-muted">
-                {race?.label} · {categoria} · Camiseta {f.camiseta} ({f.camiseta_modelo === 'babylook' ? 'Baby Look' : 'Unissex'})
+                {race?.label} · {categoria}
+                {f.modalidade !== 'kids' && f.camiseta && (
+                  <> · Camiseta {f.camiseta} ({f.camiseta_modelo === 'babylook' ? 'Baby Look' : 'Unissex'})</>
+                )}
+                {f.modalidade === 'kids' && (
+                  <> · 🏅 Inclui medalha · 👕 Sem camiseta</>
+                )}
               </div>
               {loteAtual && <div className="text-[12px] text-brand-muted mt-0.5">{loteAtual.nome}</div>}
 
@@ -556,12 +607,16 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
               <div className="mt-3 pt-3 border-t border-brand-lilac-mid space-y-1.5">
                 <div className="flex justify-between text-[13px]">
                   <span className="text-brand-muted">Inscrição</span>
-                  <span className="text-brand-ink font-medium">{formataBRL(valorInscricao)}</span>
+                  {f.modalidade === 'kids' ? (
+                    <span className="text-green-600 font-bold">🎖️ Gratuita</span>
+                  ) : (
+                    <span className="text-brand-ink font-medium">{formataBRL(valorInscricao)}</span>
+                  )}
                 </div>
                 <div className="flex justify-between text-[13px]">
                   <span className="text-brand-muted flex items-center gap-1">
                     Taxa de plataforma
-                    <span className="bg-brand-lilac text-brand-purple-dark text-[10px] px-1.5 rounded-full">INO RUN</span>
+                    <span className="bg-brand-lilac text-brand-purple-dark text-[10px] px-1.5 rounded-full">Always Profit</span>
                   </span>
                   <span className="text-brand-muted font-medium">{formataBRL(TAXA_PLATAFORMA)}</span>
                 </div>
@@ -589,7 +644,14 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
                 onChange={e => set('termo', e.target.checked)}
                 className="mt-0.5 accent-brand-purple w-4 h-4" />
               <span>
-                Li e aceito o <span className="text-brand-purple underline">termo de responsabilidade</span>{' '}
+                Li e aceito o{' '}
+                <button
+                  type="button"
+                  id="btn-ver-termo"
+                  onClick={() => setVerTermo(true)}
+                  className="text-brand-purple underline font-medium hover:text-brand-purple-dark transition-colors">
+                  termo de responsabilidade
+                </button>{' '}
                 e declaro estar apto(a) a participar da prova.
                 {f.modalidade === 'kids' && ' (Responsável legal autoriza a participação da criança.)'}
               </span>
@@ -772,6 +834,88 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
       </div>
 
       {verTabela && <TabelaMedidasModal onClose={() => setVerTabela(false)} />}
+
+      {/* Modal Termo de Responsabilidade */}
+      {verTermo && (
+        <div
+          id="modal-termo"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={e => { if (e.target === e.currentTarget) setVerTermo(false); }}
+        >
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setVerTermo(false)} />
+          <div className="relative bg-white w-full sm:max-w-[600px] sm:rounded-2xl shadow-2xl flex flex-col max-h-[90vh] rounded-t-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-brand-lilac-mid sticky top-0 bg-white rounded-t-2xl z-10">
+              <h2 className="font-display font-extrabold italic uppercase text-[18px] text-brand-ink">
+                📄 Termo de Responsabilidade
+              </h2>
+              <button
+                id="btn-fechar-termo"
+                onClick={() => setVerTermo(false)}
+                className="text-brand-muted hover:text-brand-ink transition-colors p-1 rounded-lg hover:bg-brand-lilac">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5">
+                  <path d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+
+            {/* Conteúdo */}
+            <div className="overflow-y-auto px-5 py-5 space-y-4 text-[14px] text-brand-ink leading-relaxed">
+              <div className="bg-brand-lilac border border-brand-lilac-mid rounded-xl px-4 py-3 text-[13px] text-brand-purple-dark">
+                <strong>INO RUN 2026 — Corrida InoLive</strong><br />
+                Paraopeba – MG · 11 de outubro de 2026
+              </div>
+
+              <section className="space-y-2">
+                <h3 className="font-display font-bold text-[15px] text-brand-purple-dark uppercase tracking-wide">Aptidão Física</h3>
+                <p>O(A) inscrito(a) declara estar em plenas condições de saúde e aptidão física para participar da prova escolhida, tendo realizado avaliação médica prévia quando necessário.</p>
+              </section>
+
+              <section className="space-y-2">
+                <h3 className="font-display font-bold text-[15px] text-brand-purple-dark uppercase tracking-wide">Riscos e Responsabilidade</h3>
+                <p>O(A) participante está ciente dos riscos inerentes à prática de corrida de rua e assume integral responsabilidade por eventuais danos físicos decorrentes de sua participação, isentando os organizadores do evento de qualquer responsabilidade civil ou criminal.</p>
+              </section>
+
+              <section className="space-y-2">
+                <h3 className="font-display font-bold text-[15px] text-brand-purple-dark uppercase tracking-wide">Uso de Imagem</h3>
+                <p>O(A) participante autoriza o uso gratuito de sua imagem, voz e nome, capturados durante o evento, em materiais de divulgação do INO RUN 2026 em qualquer mídia, sem direito a remuneração ou compensação.</p>
+              </section>
+
+              <section className="space-y-2">
+                <h3 className="font-display font-bold text-[15px] text-brand-purple-dark uppercase tracking-wide">Regulamento</h3>
+                <p>O(A) participante declara ter lido e aceito integralmente o regulamento oficial do INO RUN 2026, comprometendo-se a cumprir todas as normas estabelecidas pela organização.</p>
+              </section>
+
+              {f.modalidade === 'kids' && (
+                <section className="space-y-2">
+                  <h3 className="font-display font-bold text-[15px] text-yellow-700 uppercase tracking-wide">🎖️ Prova Kids — Responsável Legal</h3>
+                  <p>O responsável legal declara autorizar a participação da criança inscrita na prova Kids (300 metros), assumindo integral responsabilidade por seu bem-estar durante o evento e comprometendo-se a acompanhá-la durante toda a prova.</p>
+                </section>
+              )}
+
+              <section className="space-y-2">
+                <h3 className="font-display font-bold text-[15px] text-brand-purple-dark uppercase tracking-wide">LGPD — Dados Pessoais</h3>
+                <p>Os dados pessoais fornecidos serão utilizados exclusivamente para fins de inscrição, organização e comunicação do evento, em conformidade com a Lei nº 13.709/2018 (LGPD).</p>
+              </section>
+
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3 text-[12px] text-yellow-800">
+                Ao marcar a caixa de aceite na tela de pagamento, o participante (ou responsável legal, no caso de menores) confirma que leu e concorda com todos os termos acima.
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-4 border-t border-brand-lilac-mid sticky bottom-0 bg-white rounded-b-2xl">
+              <button
+                id="btn-aceitar-termo"
+                onClick={() => { set('termo', true); setVerTermo(false); }}
+                className="btn-primary w-full py-3 text-[16px]">
+                ✅ Li e aceito o Termo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

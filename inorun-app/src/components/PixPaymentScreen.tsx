@@ -130,7 +130,7 @@ export default function PixPaymentScreen({
         <div className="text-[12px] font-bold uppercase tracking-widest opacity-75 mb-1">Total a pagar via Pix</div>
         <div className="font-display font-extrabold text-[44px] leading-none">{fmt(valor_total)}</div>
         <div className="text-[12px] opacity-65 mt-2">
-          Inscricao {fmt(valor_inscricao)} + Taxa INO RUN {fmt(taxa)}
+          Inscricao {fmt(valor_inscricao)} + Taxa Always Profit {fmt(taxa)}
         </div>
       </div>
 

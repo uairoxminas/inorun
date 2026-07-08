@@ -22,8 +22,9 @@ export interface DadosInscricao {
   lot_id: string;
   event_id: string;
   modalidade: Modalidade;
-  camiseta: 'PP' | 'P' | 'M' | 'G' | 'GG' | 'XG' | 'XGG' | '4' | '6' | '8' | '10' | '12' | '14';
-  camiseta_modelo: 'unissex' | 'babylook';
+  // null quando Kids (sem camiseta)
+  camiseta: 'PP' | 'P' | 'M' | 'G' | 'GG' | 'XG' | 'XGG' | '4' | '6' | '8' | '10' | '12' | '14' | null;
+  camiseta_modelo: 'unissex' | 'babylook' | null;
   cupom_id?: string;
   valor_centavos: number;
   taxa_plataforma_centavos: number;
@@ -87,8 +88,9 @@ async function criarRegistration(
       athlete_id,
       lot_id:      inscricao.lot_id,
       category_id: categoria,
-      camiseta:    inscricao.camiseta,
-      camiseta_modelo: inscricao.camiseta_modelo,
+      // Kids não inclui camiseta
+      camiseta:        inscricao.camiseta ?? null,
+      camiseta_modelo: inscricao.camiseta_modelo ?? null,
       cupom_id:    inscricao.cupom_id || null,
       status:      'pendente',
     })
@@ -184,3 +186,39 @@ export async function verificarComprovantePix(
   return res.json();
 }
 
+// ── Recuperar inscrição PIX pendente (para retomada após saída da página) ──────
+// Usado quando o usuário volta via link ?pix=<id> do e-mail ou pelo localStorage.
+export async function buscarInscricaoPendente(
+  registration_id: string
+): Promise<InscricaoPendente | null> {
+  const { data, error } = await supabase
+    .from('registration')
+    .select(`
+      id,
+      status,
+      payment!inner ( valor_centavos, taxa_plataforma_centavos, status ),
+      athlete  ( nome, email ),
+      race     ( label ),
+      category_id
+    `)
+    .eq('id', registration_id)
+    .eq('status', 'pendente')
+    .single();
+
+  if (error || !data) return null;
+
+  // Converte os dados do Supabase para o formato InscricaoPendente
+  const payment    = Array.isArray(data.payment) ? data.payment[0] : data.payment as Record<string, unknown>;
+  const athlete    = Array.isArray(data.athlete) ? data.athlete[0] : data.athlete as Record<string, unknown>;
+  const race       = Array.isArray(data.race)    ? data.race[0]    : data.race    as Record<string, unknown>;
+
+  return {
+    registration_id:  data.id,
+    gateway_ref:      '',
+    valor_total:      ((payment?.valor_centavos as number) ?? 0) + ((payment?.taxa_plataforma_centavos as number) ?? 0),
+    categoria:        (data.category_id as string) ?? '',
+    atleta_nome:      (athlete?.nome as string) ?? '',
+    atleta_email:     (athlete?.email as string) ?? '',
+    prova_label:      (race?.label as string) ?? '',
+  };
+}

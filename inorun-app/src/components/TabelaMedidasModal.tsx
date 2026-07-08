@@ -1,100 +1,143 @@
 // src/components/TabelaMedidasModal.tsx
 // Modal com a tabela de medidas das camisetas (Unissex e Baby Look).
-// Medidas oficiais do fornecedor (largura x comprimento em cm, valores em faixa).
-// Largura = medida do peito (na horizontal, com a peça esticada). Comprimento = ombro à barra.
+// Medidas oficiais do fornecedor (em cm). Tolerância de ±1 cm.
+// A=Largura Tórax · B=Largura Barra · C=Compr. Frontal · D=Compr. Traseiro · E=Compr. Manga · F=Largura Manga
 
-interface Medida { tam: string; idade?: string; largura: string; comprimento: string; }
+interface MedidaDetalhe {
+  tam: string;
+  A: number; // Largura do Tórax
+  B: number; // Largura da Barra
+  C: number; // Comprimento Frontal
+  D: number; // Comprimento Traseiro
+  E: number; // Comprimento Manga
+  F: number; // Largura Manga
+}
 
-const INFANTIL: Medida[] = [
-  { tam: '4',  idade: '3 a 4 anos',   largura: '32 - 34', comprimento: '42 - 44' },
-  { tam: '6',  idade: '5 a 6 anos',   largura: '34 - 36', comprimento: '45 - 47' },
-  { tam: '8',  idade: '7 a 8 anos',   largura: '36 - 38', comprimento: '48 - 50' },
-  { tam: '10', idade: '9 a 10 anos',  largura: '38 - 40', comprimento: '51 - 53' },
-  { tam: '12', idade: '11 a 12 anos', largura: '40 - 42', comprimento: '54 - 56' },
-  { tam: '14', idade: '13 a 14 anos', largura: '42 - 44', comprimento: '57 - 59' },
+// ── Unissex (Normal) ── P / M / G / GG / EXG / ESP
+const UNISSEX: MedidaDetalhe[] = [
+  { tam: 'P',   A: 50, B: 49, C: 67, D: 68, E: 20, F: 17 },
+  { tam: 'M',   A: 53, B: 56, C: 71, D: 72, E: 22, F: 18 },
+  { tam: 'G',   A: 56, B: 56, C: 72, D: 73, E: 23, F: 19 },
+  { tam: 'GG',  A: 61, B: 60, C: 75, D: 77, E: 24, F: 22 },
+  { tam: 'XGG', A: 64, B: 64, C: 77, D: 77, E: 27, F: 23 },
 ];
 
-const UNISSEX: Medida[] = [
-  { tam: 'PP',  largura: '48 - 50', comprimento: '66 - 68' },
-  { tam: 'P',   largura: '50 - 52', comprimento: '68 - 70' },
-  { tam: 'M',   largura: '52 - 54', comprimento: '70 - 72' },
-  { tam: 'G',   largura: '54 - 56', comprimento: '72 - 74' },
-  { tam: 'GG',  largura: '56 - 58', comprimento: '74 - 76' },
-  { tam: 'XGG', largura: '58 - 60', comprimento: '76 - 78' },
+// ── Baby Look ── P / M / G / GG / EXG
+const BABYLOOK: MedidaDetalhe[] = [
+  { tam: 'P',   A: 42, B: 41, C: 54, D: 56, E: 15, F: 14 },
+  { tam: 'M',   A: 44, B: 43, C: 56, D: 57, E: 15, F: 15 },
+  { tam: 'G',   A: 48, B: 48, C: 60, D: 61, E: 16, F: 17 },
+  { tam: 'GG',  A: 51, B: 51, C: 62, D: 63, E: 16, F: 17 },
+  { tam: 'XGG', A: 56, B: 55, C: 68, D: 69, E: 18, F: 19 },
 ];
 
-const BABYLOOK: Medida[] = [
-  { tam: 'P',   largura: '38 - 40', comprimento: '54 - 56' },
-  { tam: 'M',   largura: '40 - 42', comprimento: '56 - 58' },
-  { tam: 'G',   largura: '42 - 44', comprimento: '58 - 60' },
-  { tam: 'GG',  largura: '44 - 46', comprimento: '60 - 62' },
-  { tam: 'XGG', largura: '46 - 48', comprimento: '62 - 64' },
+const MEDIDAS_LEGENDA = [
+  { letra: 'A', desc: 'Largura do Tórax' },
+  { letra: 'B', desc: 'Largura da Barra' },
+  { letra: 'C', desc: 'Comprimento Frontal' },
+  { letra: 'D', desc: 'Comprimento Traseiro' },
+  { letra: 'E', desc: 'Comprimento Manga' },
+  { letra: 'F', desc: 'Largura Manga' },
 ];
 
-function Tabela({ titulo, dados }: { titulo: string; dados: Medida[] }) {
-  const temIdade = dados.some(m => m.idade);
+function TabelaDetalhada({ titulo, emoji, dados }: { titulo: string; emoji: string; dados: MedidaDetalhe[] }) {
+  const colunas = dados.map(d => d.tam);
   return (
     <div>
-      <div className="text-[12px] font-bold uppercase tracking-widest text-brand-purple mb-2">{titulo}</div>
-      <table className="w-full border-collapse text-[13px]">
-        <thead>
-          <tr className="text-brand-muted text-[11px] uppercase tracking-wide bg-brand-bg">
-            <th className="px-3 py-2 text-left font-medium">Tam.</th>
-            {temIdade && <th className="px-3 py-2 text-left font-medium">Idade</th>}
-            <th className="px-3 py-2 text-center font-medium">Largura (cm)</th>
-            <th className="px-3 py-2 text-center font-medium">Comprimento (cm)</th>
-          </tr>
-        </thead>
-        <tbody>
-          {dados.map(m => (
-            <tr key={m.tam} className="border-t border-brand-lilac-mid">
-              <td className="px-3 py-2">
-                <span className="font-display font-bold text-[14px] bg-brand-lilac text-brand-purple-dark px-2.5 py-0.5 rounded">{m.tam}</span>
-              </td>
-              {temIdade && <td className="px-3 py-2 text-brand-muted text-[12px]">{m.idade ?? '—'}</td>}
-              <td className="px-3 py-2 text-center text-brand-ink">{m.largura}</td>
-              <td className="px-3 py-2 text-center text-brand-ink">{m.comprimento}</td>
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-[18px]">{emoji}</span>
+        <span className="text-[13px] font-extrabold uppercase tracking-widest text-brand-purple">{titulo}</span>
+      </div>
+      <div className="overflow-x-auto rounded-xl border border-brand-lilac-mid">
+        <table className="w-full border-collapse text-[13px]">
+          <thead>
+            <tr className="bg-brand-purple text-white">
+              <th className="px-3 py-2.5 text-left font-bold text-[11px] uppercase tracking-wider min-w-[110px]">
+                Medida
+              </th>
+              {colunas.map(tam => (
+                <th key={tam} className="px-3 py-2.5 text-center font-bold text-[13px] min-w-[44px]">
+                  {tam}
+                </th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {MEDIDAS_LEGENDA.map((m, idx) => (
+              <tr key={m.letra} className={idx % 2 === 0 ? 'bg-white' : 'bg-brand-bg'}>
+                <td className="px-3 py-2 text-brand-muted text-[12px] font-medium">
+                  <span className="inline-flex items-center justify-center w-5 h-5 bg-brand-purple text-white rounded-full text-[10px] font-black mr-1.5">
+                    {m.letra}
+                  </span>
+                  {m.desc}
+                </td>
+                {dados.map(d => (
+                  <td key={d.tam} className="px-3 py-2 text-center font-semibold text-brand-ink">
+                    {d[m.letra as keyof MedidaDetalhe]}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
 
 export default function TabelaMedidasModal({ onClose }: { onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-5">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl w-full max-w-[520px] max-h-[85vh] overflow-y-auto p-6 shadow-2xl animate-fade-up">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-display font-extrabold italic uppercase text-[22px] text-brand-ink">
+      <div className="relative bg-white w-full sm:max-w-[580px] sm:rounded-2xl rounded-t-2xl shadow-2xl flex flex-col max-h-[92vh] animate-fade-up">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-brand-lilac-mid sticky top-0 bg-white rounded-t-2xl z-10">
+          <h3 className="font-display font-extrabold italic uppercase text-[20px] text-brand-ink">
             📏 Tabela de medidas
           </h3>
-          <button onClick={onClose} className="text-brand-muted text-[26px] leading-none">×</button>
+          <button id="btn-fechar-tabela-medidas" onClick={onClose}
+            className="text-brand-muted hover:text-brand-ink p-1 rounded-lg hover:bg-brand-lilac transition-colors">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5">
+              <path d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
         </div>
 
-        <p className="text-[13px] text-brand-muted mb-5">
-          Meça uma camiseta que sirva bem em você, com a peça esticada sobre uma superfície plana,
-          e compare com os valores abaixo. Em dúvida entre dois tamanhos, escolha o maior.
-        </p>
+        {/* Conteúdo */}
+        <div className="overflow-y-auto px-5 py-5 space-y-6">
 
-        <div className="space-y-6">
-          <Tabela titulo="👕 Unissex (com manga)" dados={UNISSEX} />
-          <Tabela titulo="👚 Baby Look" dados={BABYLOOK} />
-          <div>
-            <Tabela titulo="🎖️ Infantil (Kids)" dados={INFANTIL} />
-            <p className="text-[12px] text-brand-muted mt-2">
-              Para crianças maiores, os tamanhos <strong>PP, P e M</strong> seguem a tabela Unissex acima.
-            </p>
+          {/* Legenda visual */}
+          <div className="bg-brand-lilac border border-brand-lilac-mid rounded-xl px-4 py-3">
+            <p className="text-[12px] text-brand-purple-dark font-semibold mb-2 uppercase tracking-wide">Referência das medidas (em cm)</p>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+              {MEDIDAS_LEGENDA.map(m => (
+                <div key={m.letra} className="flex items-center gap-1.5 text-[12px] text-brand-muted">
+                  <span className="inline-flex items-center justify-center w-4 h-4 bg-brand-purple text-white rounded-full text-[9px] font-black flex-shrink-0">
+                    {m.letra}
+                  </span>
+                  {m.desc}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <TabelaDetalhada titulo="Unissex (Normal)" emoji="👕" dados={UNISSEX} />
+          <TabelaDetalhada titulo="Baby Look" emoji="👚" dados={BABYLOOK} />
+
+          {/* Tolerância */}
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-[12px] text-amber-800 font-medium text-center">
+            ⚠️ Tolerância de ±1 cm para mais ou para menos. Em dúvida entre dois tamanhos, escolha o maior.
           </div>
         </div>
 
-        <div className="mt-5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-[12px] text-amber-800">
-          Largura medida na altura do peito, com a peça esticada. Valores em cm; pode variar ± 2 cm.
+        {/* Footer */}
+        <div className="px-5 py-4 border-t border-brand-lilac-mid sticky bottom-0 bg-white rounded-b-2xl">
+          <button id="btn-fechar-tabela-ok" onClick={onClose} className="btn-primary w-full py-3 text-[15px]">
+            Entendi, fechar
+          </button>
         </div>
-
-        <button onClick={onClose} className="btn-primary w-full mt-5 py-3 text-[15px]">Fechar</button>
       </div>
     </div>
   );

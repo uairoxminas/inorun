@@ -346,7 +346,7 @@ export default function GroupRegisterFlow({ onBack, onDone }: Props) {
             {/* Resumo */}
             <div className="mt-6 card p-5 bg-brand-lilac/40">
               <div className="flex justify-between text-[13px]"><span className="text-brand-muted">Inscrições ({resumo.qtd} × {formataBRL(8900)})</span><span className="font-medium">{formataBRL(resumo.subtotal_inscricoes_centavos)}</span></div>
-              <div className="flex justify-between text-[13px] mt-1"><span className="text-brand-muted">Taxa INO RUN ({resumo.qtd} × {formataBRL(500)})</span><span className="font-medium">{formataBRL(resumo.subtotal_taxas_centavos)}</span></div>
+              <div className="flex justify-between text-[13px] mt-1"><span className="text-brand-muted">Taxa Always Profit ({resumo.qtd} × {formataBRL(500)})</span><span className="font-medium">{formataBRL(resumo.subtotal_taxas_centavos)}</span></div>
               <div className="flex items-baseline justify-between border-t border-brand-lilac-mid pt-2 mt-2">
                 <span className="text-brand-muted text-[14px]">Total do grupo</span>
                 <span className="font-display font-extrabold text-[32px] text-brand-purple">{formataBRL(resumo.total_centavos)}</span>
