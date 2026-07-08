@@ -356,12 +356,18 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
                     </span>
                   </td>
                   <td className="px-3 py-2.5 text-center">
-                    <span className="font-display font-bold text-[12px] bg-brand-lilac text-brand-purple-dark px-2 py-0.5 rounded">
-                      {r.camiseta}
-                    </span>
-                    <span className="block text-[10px] text-brand-muted mt-0.5">
-                      {r.camiseta_modelo === 'babylook' ? 'Baby Look' : 'Unissex'}
-                    </span>
+                    {r.camiseta ? (
+                      <>
+                        <span className="font-display font-bold text-[12px] bg-brand-lilac text-brand-purple-dark px-2 py-0.5 rounded">
+                          {r.camiseta}
+                        </span>
+                        <span className="block text-[10px] text-brand-muted mt-0.5">
+                          {r.camiseta_modelo === 'babylook' ? 'Baby Look' : 'Unissex'}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-[11px] text-brand-muted">—</span>
+                    )}
                   </td>
                   <td className="px-3 py-2.5 text-[13px]">{formataBRL(r.preco_centavos ?? 0)}</td>
                   <td className="px-3 py-2.5 text-center">
@@ -431,7 +437,7 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
                       ['Sexo',       atleta.sexo === 'M' ? 'Masculino' : 'Feminino'],
                       ['Prova',      `${atleta.distancia} km`],
                       ['Categoria',  atleta.categoria],
-                      ['Camiseta',   `${atleta.camiseta} · ${atleta.camiseta_modelo === 'babylook' ? 'Baby Look' : 'Unissex'}`],
+                      ['Camiseta',   atleta.camiseta ? `${atleta.camiseta} · ${atleta.camiseta_modelo === 'babylook' ? 'Baby Look' : 'Unissex'}` : 'Sem camiseta'],
                       ['Lote',       atleta.lote ?? '—'],
                       ['Valor',      formataBRL(atleta.preco_centavos ?? 0)],
                       ['Pagamento',  atleta.pagamento ?? '—'],
