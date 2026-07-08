@@ -22,6 +22,8 @@ export interface InscritoRow {
   status: string;
   lote: string;
   preco_centavos: number;
+  valor_pago?: number | null;   // valor da inscrição efetivamente pago (com desconto de cupom)
+  taxa_paga?: number | null;
   pagamento: string | null;
   pag_status: string | null;
   paid_at: string | null;
@@ -159,7 +161,8 @@ export function calcularMetricas(inscritos: InscritoRow[]): MetricasAdmin {
     pendentes:         pendentes.length,
     cancelados:        cancelados.length,
     checkins:          checkins.length,
-    receita_centavos:  confirmados.reduce((acc, i) => acc + (i.preco_centavos ?? 0), 0),
+    // Receita real: valor efetivamente pago (com desconto de cupom). Fallback: preço do lote.
+    receita_centavos:  confirmados.reduce((acc, i) => acc + (i.valor_pago ?? i.preco_centavos ?? 0), 0),
     inscritos_5km:     inscritos.filter(i => i.distancia === 5  && i.status !== 'cancelado').length,
     inscritos_10km:    inscritos.filter(i => i.distancia === 10 && i.status !== 'cancelado').length,
     vagas_5km:  280,
