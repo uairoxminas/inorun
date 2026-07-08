@@ -99,6 +99,11 @@ function AppInner() {
       setView('register');
       return;
     }
+    // Link de compartilhamento: ?grupo=1 abre direto a inscrição em grupo
+    if (urlParams.get('grupo')) {
+      setView('grupo');
+      return;
+    }
     try {
       const local = localStorage.getItem('inorun_pix_pendente');
       if (local) setTemPixPendente(true);

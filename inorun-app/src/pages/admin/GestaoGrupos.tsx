@@ -25,6 +25,13 @@ export default function GestaoGrupos() {
   const [aberto, setAberto]     = useState<string | null>(null);
   const [atletas, setAtletas]   = useState<Record<string, GrupoAtletaRow[]>>({});
   const [processando, setProcessando] = useState<string | null>(null);
+  const [copiado, setCopiado]   = useState(false);
+
+  const linkGrupo = `${window.location.origin}/?grupo=1`;
+  const copiarLink = async () => {
+    try { await navigator.clipboard.writeText(linkGrupo); setCopiado(true); setTimeout(() => setCopiado(false), 3000); }
+    catch { /* clipboard indisponível */ }
+  };
 
   const carregar = async () => {
     setLoading(true);
@@ -77,6 +84,29 @@ export default function GestaoGrupos() {
 
       <div className="bg-brand-lilac rounded-xl px-4 py-3 text-[13px] text-brand-purple-dark">
         Inscrições em grupo (assessorias/equipes). Revise o comprovante e confirme para gerar os números de peito de todos os atletas de uma vez.
+      </div>
+
+      {/* Link de compartilhamento da inscrição em grupo */}
+      <div className="card p-4">
+        <div className="text-[11px] font-bold uppercase tracking-widest text-brand-muted mb-2">
+          🔗 Link de inscrição em grupo
+        </div>
+        <p className="text-[12px] text-brand-muted mb-3">
+          Envie este link para assessorias e equipes — ele abre direto o formulário de inscrição em grupo.
+        </p>
+        <div className="flex items-center gap-2 flex-wrap">
+          <input readOnly value={linkGrupo} onClick={e => (e.target as HTMLInputElement).select()}
+            className="input flex-1 min-w-[220px] text-[13px] font-mono py-2" />
+          <button onClick={copiarLink}
+            className={`px-4 py-2 rounded-xl font-bold text-[13px] min-w-[90px] transition-colors ${copiado ? 'bg-green-500 text-white' : 'bg-brand-purple text-white hover:bg-brand-purple-dark'}`}>
+            {copiado ? 'Copiado!' : 'Copiar'}
+          </button>
+          <a href={`https://wa.me/?text=${encodeURIComponent('Inscreva sua equipe no INO RUN 2026 (10+ atletas por R$89 cada): ' + linkGrupo)}`}
+            target="_blank" rel="noreferrer"
+            className="px-4 py-2 rounded-xl font-bold text-[13px] bg-[#25D366] text-white hover:bg-[#20ba5a] transition-colors">
+            Enviar no WhatsApp
+          </a>
+        </div>
       </div>
 
       {loading ? (
