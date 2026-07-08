@@ -819,8 +819,8 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
         )}
 
 
-        {/* Botão avançar / pagar */}
-        {step < 5 && (
+        {/* Botão avançar / pagar — escondido na tela de Pix (comprovante é obrigatório lá) */}
+        {step < 5 && !pixPendente && (
           <button id={`btn-step-${step}-avancar`}
             disabled={!canAdvance[step] || enviando}
             onClick={step === 4 ? handlePagar : () => setStep(s => s + 1)}

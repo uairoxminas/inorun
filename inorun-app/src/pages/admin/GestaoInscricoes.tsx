@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { formataBRL } from '../../lib/precoLoteAtual';
-import { cancelarInscricao, editarInscricao, gerarCSV } from '../../services/adminService';
+import { cancelarInscricao, excluirInscricao, editarInscricao, gerarCSV } from '../../services/adminService';
 import type { InscritoRow } from '../../services/adminService';
 import { supabase } from '../../lib/supabase';
 
@@ -44,6 +44,7 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
   const [modoEdicao, setModoEdicao]     = useState(false);
   const [salvando, setSalvando]         = useState(false);
   const [cancelando, setCancelando]     = useState(false);
+  const [excluindo, setExcluindo]       = useState(false);
   const [revisando, setRevisando]       = useState(false);
   const [pag, setPag]                   = useState(1);
   const POR_PAG = 20;
@@ -139,6 +140,16 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
     const { ok } = await cancelarInscricao(atleta.registration_id);
     if (ok) { await onRecarregar(); setAtleta(null); }
     setCancelando(false);
+  };
+
+  const handleExcluir = async () => {
+    if (!atleta) return;
+    if (!confirm(`Excluir PERMANENTEMENTE a inscrição de ${atleta.nome}? Esta ação não pode ser desfeita.`)) return;
+    setExcluindo(true);
+    const res = await excluirInscricao(atleta.registration_id);
+    if (res.ok) { await onRecarregar(); setAtleta(null); }
+    else alert(res.erro ?? 'Erro ao excluir inscrição');
+    setExcluindo(false);
   };
 
   const handleRevisao = async (acao: 'confirmar' | 'rejeitar') => {
@@ -533,6 +544,13 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
                         disabled={cancelando}
                         className="w-full py-3 rounded-xl border-2 border-red-400 text-red-600 font-semibold text-[14px] hover:bg-red-50 transition-colors disabled:opacity-50">
                         {cancelando ? 'Cancelando...' : '⚠️ Cancelar inscrição'}
+                      </button>
+                    )}
+                    {atleta.status === 'cancelado' && (
+                      <button id="btn-excluir-inscricao" onClick={handleExcluir}
+                        disabled={excluindo}
+                        className="w-full py-3 rounded-xl bg-red-600 text-white font-semibold text-[14px] hover:bg-red-700 transition-colors disabled:opacity-50">
+                        {excluindo ? 'Excluindo...' : '🗑 Excluir permanentemente'}
                       </button>
                     )}
                   </div>

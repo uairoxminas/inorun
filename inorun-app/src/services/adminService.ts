@@ -193,6 +193,13 @@ export async function cancelarInscricao(registration_id: string): Promise<{ ok: 
   return data as { ok: boolean; erro?: string };
 }
 
+// Exclui permanentemente uma inscrição (apenas se estiver cancelada)
+export async function excluirInscricao(registration_id: string): Promise<{ ok: boolean; erro?: string }> {
+  const { data, error } = await supabase.rpc('admin_excluir_inscricao', { p_registration_id: registration_id });
+  if (error) return { ok: false, erro: error.message };
+  return data as { ok: boolean; erro?: string };
+}
+
 export async function editarInscricao(
   registration_id: string,
   campos: { nome?: string; email?: string; telefone?: string; camiseta?: string; status?: string; race_id?: string }
