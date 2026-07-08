@@ -696,11 +696,11 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
               <section className="space-y-3">
                 <h2 className="font-display font-bold text-lg text-brand-purple-dark">CAPÍTULO VI – PREMIAÇÃO</h2>
                 <p>
-                  <strong>Artigo 11.</strong> Serão premiados com troféus exclusivos:
+                  <strong>Artigo 11.</strong> Serão premiados com medalhas exclusivas:
                 </p>
                 <ul className="list-disc pl-5 space-y-1">
                   <li>Os 3 (três) primeiros colocados da classificação Geral (Masculino e Feminino) nas provas de 5 km e 10 km.</li>
-                  <li>O 1º (primeiro) colocado de cada Categoria de faixa etária (Masculino e Feminino) nas provas de 5 km e 10 km.</li>
+                  <li>Os 3 (três) primeiros colocados de cada Categoria de faixa etária (Masculino e Feminino) nas provas de 5 km e 10 km.</li>
                   <li>Medalha de participação (Finisher) para todos os inscritos que cruzarem a linha de chegada dentro do tempo limite da prova.</li>
                 </ul>
               </section>
