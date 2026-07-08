@@ -380,7 +380,7 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
                       <span className="text-[11px] text-brand-muted">—</span>
                     )}
                   </td>
-                  <td className="px-3 py-2.5 text-[13px]">{formataBRL(r.preco_centavos ?? 0)}</td>
+                  <td className="px-3 py-2.5 text-[13px]">{formataBRL(r.valor_pago ?? r.preco_centavos ?? 0)}</td>
                   <td className="px-3 py-2.5 text-center">
                     {r.checked_in_at
                       ? <span className="text-green-600 text-[13px]">✓ {new Date(r.checked_in_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
@@ -450,7 +450,7 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
                       ['Categoria',  atleta.categoria],
                       ['Camiseta',   atleta.camiseta ? `${atleta.camiseta} · ${atleta.camiseta_modelo === 'babylook' ? 'Baby Look' : 'Unissex'}` : 'Sem camiseta'],
                       ['Lote',       atleta.lote ?? '—'],
-                      ['Valor',      formataBRL(atleta.preco_centavos ?? 0)],
+                      ['Valor pago', formataBRL(atleta.valor_pago ?? atleta.preco_centavos ?? 0)],
                       ['Pagamento',  atleta.pagamento ?? '—'],
                       ['Pag. Status',atleta.pag_status ?? '—'],
                       ['Status',     atleta.status],

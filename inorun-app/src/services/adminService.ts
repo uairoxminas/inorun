@@ -182,7 +182,7 @@ export function gerarCSV(inscritos: InscritoRow[]): string {
   const rows = inscritos.map(i => [
     i.nome, i.email, i.cpf, i.sexo, i.prova, i.categoria,
     i.camiseta, i.camiseta_modelo === 'babylook' ? 'Baby Look' : 'Unissex', i.bib_number ?? '',
-    i.lote, ((i.preco_centavos ?? 0) / 100).toFixed(2).replace('.', ','),
+    i.lote, ((i.valor_pago ?? i.preco_centavos ?? 0) / 100).toFixed(2).replace('.', ','),
     i.pagamento ?? '', i.status,
     i.checked_in_at ? new Date(i.checked_in_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '',
     new Date(i.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
