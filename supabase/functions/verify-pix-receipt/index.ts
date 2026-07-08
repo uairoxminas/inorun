@@ -94,7 +94,7 @@ Se qualquer regra falhar, aprovado=false com motivo especifico.
 
     try {
       const geminiResp = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -103,14 +103,23 @@ Se qualquer regra falhar, aprovado=false com motivo especifico.
               { text: prompt },
               { inline_data: { mime_type: mime_type || "image/jpeg", data: imagem_base64 } },
             ]}],
-            generationConfig: { responseMimeType: "application/json", temperature: 0.1, maxOutputTokens: 256 },
+            generationConfig: {
+              responseMimeType: "application/json",
+              temperature: 0.1,
+              maxOutputTokens: 1024,
+              thinkingConfig: { thinkingBudget: 0 },  // desativa "thinking" (2.5-flash)
+            },
           }),
         }
       );
       if (geminiResp.ok) {
         const gd = await geminiResp.json();
         const rawText = gd.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
-        analise = JSON.parse(rawText);
+        // Parse robusto: extrai o objeto JSON mesmo se vier com texto/fences ao redor
+        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+        analise = JSON.parse(jsonMatch ? jsonMatch[0] : rawText);
+      } else {
+        console.error("Gemini non-ok:", geminiResp.status, (await geminiResp.text()).slice(0, 400));
       }
     } catch (e) {
       console.error("Gemini error:", e);
