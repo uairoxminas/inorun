@@ -11,23 +11,26 @@ import Cronograma from './admin/Cronograma';
 import Financeiro from './admin/Financeiro';
 import CheckIn from './admin/CheckIn';
 import UploadResultados from './admin/UploadResultados';
+import MetaPixelInfoCard from '../components/MetaPixelInfoCard';
 import { getInscritos, calcularMetricas } from '../services/adminService';
 import type { InscritoRow, MetricasAdmin } from '../services/adminService';
 
 interface Props { onBack: () => void; totalInscritos: number; }
 
-type Secao = 'dashboard' | 'inscricoes' | 'grupos' | 'lotes' | 'cronograma' | 'financeiro' | 'checkin' | 'resultados';
+type Secao = 'dashboard' | 'inscricoes' | 'grupos' | 'lotes' | 'pixel' | 'cronograma' | 'financeiro' | 'checkin' | 'resultados';
 
 const NAV: { id: Secao; label: string; icon: string }[] = [
   { id: 'dashboard',  label: 'Dashboard',     icon: '📊' },
   { id: 'inscricoes', label: 'Inscrições',     icon: '🏃' },
   { id: 'grupos',     label: 'Grupos',         icon: '👥' },
   { id: 'lotes',      label: 'Lotes & Cupons', icon: '🎟️' },
+  { id: 'pixel',      label: 'Meta Pixel & Ads', icon: '🎯' },
   { id: 'cronograma', label: 'Cronograma',     icon: '🕐' },
   { id: 'financeiro', label: 'Financeiro',     icon: '💰' },
   { id: 'checkin',    label: 'Check-in',       icon: '✅' },
   { id: 'resultados', label: 'Resultados',     icon: '🏆' },
 ];
+
 
 export default function AdminPanel({ onBack }: Props) {
   // Auth
@@ -146,7 +149,9 @@ export default function AdminPanel({ onBack }: Props) {
           )}
           {secao === 'grupos' && <GestaoGrupos />}
           {secao === 'lotes' && <GestaoLotesCupons />}
+          {secao === 'pixel' && <MetaPixelInfoCard />}
           {secao === 'cronograma' && <Cronograma />}
+
           {secao === 'financeiro' && eventoId && <Financeiro eventoId={eventoId} />}
           {secao === 'checkin' && <CheckIn />}
           {secao === 'resultados' && <UploadResultados />}

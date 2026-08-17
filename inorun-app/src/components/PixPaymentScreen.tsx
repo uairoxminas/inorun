@@ -6,6 +6,8 @@ import { useState, useRef } from "react";
 import { verificarComprovantePix } from "../services/inscricaoService";
 import type { ResultadoInscricao } from "../services/inscricaoService";
 import { supabase } from "../lib/supabase";
+import { trackMetaEvent } from "../lib/metaPixel";
+
 
 const PIX_KEY         = "51950403000132";
 const PIX_KEY_DISPLAY = "51.950.403/0001-32";
@@ -99,6 +101,19 @@ export default function PixPaymentScreen({
         prova_label, categoria, base64, arquivo.type, comprovante_url
       );
 
+      // Dispara evento Purchase no Meta Ads (Pixel + Conversions API CAPI)
+      trackMetaEvent('Purchase', {
+        value: valor_total / 100,
+        currency: 'BRL',
+        content_name: prova_label,
+        content_category: categoria,
+        num_items: 1,
+      }, {
+        em: atleta_email,
+        fn: atleta_nome,
+        external_id: registration_id,
+      }, `purchase_${registration_id}`);
+
       if (resultado.aprovado && resultado.bib_number) {
         onConfirmado({
           registration_id, bib_number: resultado.bib_number, categoria,
@@ -109,6 +124,7 @@ export default function PixPaymentScreen({
       } else {
         setRejeitado(resultado.motivo || "Comprovante nao aprovado. Verifique os dados e tente novamente.");
       }
+
     } catch (e: unknown) {
       const raw = e instanceof Error ? e.message : "";
       try {

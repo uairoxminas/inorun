@@ -16,8 +16,10 @@ import {
   criarInscricaoGrupo, uploadComprovanteGrupo, registrarComprovanteGrupo,
 } from '../services/grupoService';
 import type { AtletaGrupo } from '../services/grupoService';
+import { trackMetaEvent } from '../lib/metaPixel';
 
 interface Props { onBack: () => void; onDone: () => void; }
+
 
 const PIX_KEY_DISPLAY = '51.950.403/0001-32';
 const PIX_KEY         = '51950403000132';
@@ -65,8 +67,13 @@ export default function GroupRegisterFlow({ onBack, onDone }: Props) {
   const [verTabela, setVerTabela] = useState(false);
 
   useEffect(() => {
+    trackMetaEvent('InitiateCheckout', {
+      content_name: 'Inscrição Grupo INO RUN 2026',
+      currency: 'BRL',
+    });
     getEventoPublico().then(setEvento).finally(() => setLoading(false));
   }, []);
+
 
   const races = evento?.races ?? [];
   // Kids não entra na inscrição em grupo — removido do seletor de provas.

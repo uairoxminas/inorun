@@ -10,8 +10,10 @@ import RegisterFlow from './pages/RegisterFlow';
 import GroupRegisterFlow from './pages/GroupRegisterFlow';
 import AdminPanel from './pages/AdminPanel';
 import DevHandshake from './pages/DevHandshake';
+import { initMetaPixel } from './lib/metaPixel';
 
 type View = 'site' | 'register' | 'grupo' | 'admin';
+
 
 // ── Botão flutuante WhatsApp — renderizado direto no body via portal ──────────
 const WA_NUMBER  = '5548996459791';
@@ -90,7 +92,13 @@ function AppInner() {
   const [totalInscritos, setTotalInscritos] = useState(842);
   const [temPixPendente, setTemPixPendente] = useState(false);
 
+  // Inicializa Meta Pixel & CAPI
+  useEffect(() => {
+    initMetaPixel();
+  }, []);
+
   // Detecta PIX pendente no localStorage para exibir banner no site
+
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const pixId = urlParams.get('pix');
@@ -188,12 +196,24 @@ function AppInner() {
   );
 }
 
+// ── Wrapper de rota /admin ────────────────────────────────────────────────────
+function AdminRoute() {
+  return (
+    <div className="min-h-screen bg-brand-bg">
+      <AdminPanel totalInscritos={0} onBack={() => { window.location.href = '/'; }} />
+      <WhatsAppFAB />
+    </div>
+  );
+}
+
 export default function App() {
   const isDev = import.meta.env.DEV;
   return (
     <BrowserRouter>
       <Routes>
         {isDev && <Route path="/dev/handshake" element={<DevHandshake />} />}
+        <Route path="/admin" element={<AdminRoute />} />
+        <Route path="/admin/*" element={<AdminRoute />} />
         <Route path="*" element={<AppInner />} />
       </Routes>
     </BrowserRouter>

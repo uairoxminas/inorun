@@ -7,6 +7,8 @@ import { supabase } from '../lib/supabase';
 import { testCalcCategoria } from '../lib/calcCategoria';
 import { testValidaCPF } from '../lib/validaCPF';
 import { testPrecoLoteAtual } from '../lib/precoLoteAtual';
+import MetaPixelInfoCard from '../components/MetaPixelInfoCard';
+
 
 interface HandshakeResult {
   status: 'idle' | 'loading' | 'ok' | 'error';
@@ -150,7 +152,11 @@ export default function DevHandshake() {
         )}
       </section>
 
+      {/* ── Meta Pixel & CAPI ── */}
+      <MetaPixelInfoCard />
+
       {/* ── Migration SQL ── */}
+
       <section style={{ background: '#fef3c7', borderRadius: 8, padding: 16, border: '1px solid #fcd34d' }}>
         <h2 style={{ color: '#92400e', fontSize: 14, margin: '0 0 8px' }}>⚠️ Migration SQL necessária</h2>
         <p style={{ fontSize: 13, color: '#78350f', margin: '0 0 8px' }}>

@@ -15,6 +15,8 @@ import type { EventoData } from '../services/eventoService';
 import { formataBRL } from '../lib/precoLoteAtual';
 import { buscarResultadosAtleta, getResultadosLeaderboard } from '../services/resultadosService';
 import type { ResultadoRow } from '../services/resultadosService';
+import { trackMetaEvent } from '../lib/metaPixel';
+
 
 interface Props {
   onRegister: () => void;
@@ -99,11 +101,17 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
   });
 
   useEffect(() => {
+    trackMetaEvent('ViewContent', {
+      content_name: 'INO RUN 2026 Landing Page',
+      content_category: 'Corrida de Rua',
+    });
+
     getEventoPublico()
       .then(e => { setEvento(e); onEventoCarregado?.(e); })
       .catch(console.error)
       .finally(() => setLoadingEvento(false));
   }, []);
+
 
   // Provas por tipo (v2: corrida 5k, corrida 10k, kids, caminhada)
   // Resiliência: se tipo = null (migration 013 ainda não rodada no banco),

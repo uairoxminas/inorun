@@ -15,6 +15,8 @@ import type { EventoData } from '../services/eventoService';
 import type { ResultadoInscricao, InscricaoPendente } from '../services/inscricaoService';
 import PixPaymentScreen from '../components/PixPaymentScreen';
 import TabelaMedidasModal from '../components/TabelaMedidasModal';
+import { trackMetaEvent } from '../lib/metaPixel';
+
 
 // ── Persistência local da inscrição PIX pendente ─────────────────────────────
 const LS_KEY = 'inorun_pix_pendente';
@@ -74,9 +76,15 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF(p => ({ ...p, [k]: v }));
 
   useEffect(() => {
+    trackMetaEvent('InitiateCheckout', {
+      content_name: 'Inscrição Individual INO RUN 2026',
+      currency: 'BRL',
+    });
+
     getEventoPublico().then(setEvento).finally(() => setLoading(false));
 
     // ── Retomar PIX pendente ─────────────────────────────────────────────────
+
     // 1) Via URL: ?pix=<registration_id> (link do e-mail)
     const urlParams = new URLSearchParams(window.location.search);
     const pixId = urlParams.get('pix');
@@ -295,6 +303,94 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
         {/* ── STEP 1: Escolha a prova ── */}
         {step === 1 && (
           <div className="mt-6 grid gap-5">
+
+            {/* 🎉 BANNER PROMOÇÃO SORTEIO TAMARIN + INOLIVE */}
+            <a
+              href="https://www.instagram.com/inoliveeventos"
+              target="_blank"
+              rel="noopener noreferrer"
+              id="banner-promo-sorteio"
+              style={{
+                display: 'block',
+                borderRadius: '18px',
+                overflow: 'hidden',
+                textDecoration: 'none',
+                background: 'linear-gradient(135deg, #1a0033 0%, #6b0fa8 50%, #1a0033 100%)',
+                border: '2px solid #FFD200',
+                boxShadow: '0 4px 24px rgba(132,23,174,0.35)',
+                animation: 'pulsePromo 3s ease-in-out infinite',
+              }}
+            >
+              {/* Faixa amarela topo */}
+              <div style={{
+                background: '#FFD200',
+                padding: '8px 20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+              }}>
+                <span style={{ fontSize: '14px', fontWeight: 900, color: '#1a0033', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                  🎉 Fez sua inscrição? Concorra a um sorteio especial!
+                </span>
+              </div>
+
+              {/* Corpo do banner */}
+              <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                {/* Prêmios */}
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '13px', fontWeight: 800, color: '#FFD200', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>
+                    Prêmios exclusivos:
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {[
+                      '🟣 01 Squeeze Tamarin',
+                      '🟢 01 Squeeze Inolive',
+                      '🍫 01 Açaí Proteico Tamarin',
+                    ].map(item => (
+                      <div key={item} style={{ fontSize: '12px', color: 'rgba(255,255,255,0.9)', fontWeight: 600 }}>{item}</div>
+                    ))}
+                  </div>
+                  <div style={{
+                    marginTop: '10px',
+                    display: 'inline-block',
+                    background: '#FFD200',
+                    color: '#1a0033',
+                    fontSize: '11px',
+                    fontWeight: 900,
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px',
+                    padding: '5px 12px',
+                    borderRadius: '8px',
+                  }}>
+                    Ver como participar →
+                  </div>
+                </div>
+
+                {/* Ícone / emoji visual */}
+                <div style={{ fontSize: '48px', flexShrink: 0, lineHeight: 1 }}>🏆</div>
+              </div>
+
+              {/* Instruções rápidas */}
+              <div style={{
+                background: 'rgba(255,210,0,0.10)',
+                borderTop: '1px solid rgba(255,210,0,0.3)',
+                padding: '10px 20px',
+                fontSize: '11px',
+                color: 'rgba(255,255,255,0.75)',
+                textAlign: 'center',
+              }}>
+                📸 Poste com a moldura oficial · Marque @inoliveoficial · Use #InoRun2026
+              </div>
+            </a>
+
+            {/* CSS da animação */}
+            <style>{`
+              @keyframes pulsePromo {
+                0%, 100% { box-shadow: 0 4px 24px rgba(132,23,174,0.35); }
+                50%       { box-shadow: 0 4px 32px rgba(255,210,0,0.45); }
+              }
+            `}</style>
 
             {/* Corridas */}
             <div>
@@ -823,7 +919,25 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
         {step < 5 && !pixPendente && (
           <button id={`btn-step-${step}-avancar`}
             disabled={!canAdvance[step] || enviando}
-            onClick={step === 4 ? handlePagar : () => setStep(s => s + 1)}
+            onClick={() => {
+              if (step === 2) {
+                const nomes = f.nome.trim().split(' ');
+                trackMetaEvent('Lead', {
+                  content_name: 'Dados Atleta Preenchidos',
+                }, {
+                  em: f.email,
+                  ph: f.tel,
+                  fn: nomes[0] || '',
+                  ln: nomes.slice(1).join(' ') || '',
+                  external_id: f.cpf,
+                });
+              }
+              if (step === 4) {
+                handlePagar();
+              } else {
+                setStep(s => s + 1);
+              }
+            }}
             className={`w-full mt-7 py-4 rounded-xl font-display font-bold italic text-[18px] tracking-wider uppercase transition-all duration-150
               ${canAdvance[step] && !enviando
                 ? 'bg-brand-purple text-white hover:bg-brand-purple-dark active:scale-95 shadow-brand'
@@ -831,6 +945,7 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
             {enviando ? 'Processando...' : step === 4 ? `Pagar ${formataBRL(total)}` : 'Continuar'}
           </button>
         )}
+
       </div>
 
       {verTabela && <TabelaMedidasModal onClose={() => setVerTabela(false)} />}
