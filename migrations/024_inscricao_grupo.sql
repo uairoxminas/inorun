@@ -122,11 +122,12 @@ BEGIN
       v_atleta->>'nome',
       regexp_replace(v_atleta->>'cpf', '\D', '', 'g'),
       (v_atleta->>'nascimento')::date,
-      (v_atleta->>'sexo')::sexo_tipo,
+      (v_atleta->>'sexo')::text,
       lower(trim(v_atleta->>'email')),
       NULLIF(trim(v_atleta->>'telefone'), ''),
-      NULL
+      NULL::text
     );
+
     IF v_upsert ? 'error' THEN
       RAISE EXCEPTION 'Atleta % (%): %', v_idx, v_atleta->>'nome', v_upsert->>'error';
     END IF;
