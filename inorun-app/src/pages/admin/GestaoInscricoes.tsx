@@ -243,24 +243,38 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
         </button>
       </div>
 
-      {/* Seção Informativa & Simulador de Testes do WhatsApp */}
-      <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 shadow-sm">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-xl">🟢</span>
-          <h4 className="font-display font-bold text-[16px] text-emerald-800 uppercase tracking-wide">
-            Funcionalidade: Comunicação via WhatsApp
-          </h4>
+      {/* Seção Informativa & Simulador de Testes do WhatsApp e Comprovantes */}
+      <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 shadow-sm space-y-4">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xl">🟢</span>
+            <h4 className="font-display font-bold text-[16px] text-emerald-800 uppercase tracking-wide">
+              Funcionalidade: Gestão de Comprovantes Pix e Comunicação WhatsApp
+            </h4>
+          </div>
+          <div className="text-[13px] text-emerald-700 leading-relaxed space-y-2">
+            <p>
+              <strong>Objetivo:</strong> Permitir aos organizadores visualizar e validar comprovantes de pagamento Pix enviadas pelos atletas (inscrições pendentes ou em análise), além de possibilitar contato direto via WhatsApp.
+            </p>
+            <p>
+              <strong>Instruções de Uso:</strong><br />
+              1. Filtre as inscrições abaixo por <strong>"Pendentes"</strong> ou <strong>"⏳ Em Análise"</strong>.<br />
+              2. Clique no botão <strong>"Ver / Editar"</strong> na linha do atleta.<br />
+              3. Se o atleta enviou o comprovante, a imagem será exibida em destaque. Clique na imagem para expandi-la e use os botões <strong>"✅ Confirmar"</strong> (para gerar o Bib number) ou <strong>"❌ Rejeitar"</strong>.<br />
+              4. Se o atleta ainda não enviou, use o botão <strong>"Conversar no WhatsApp"</strong> para enviar um lembrete amigável.
+            </p>
+            <p>
+              <strong>Como Testar de Forma Prática:</strong><br />
+              • Abra a ficha de qualquer inscrito na tabela abaixo para visualizar a imagem do comprovante Pix e testar os botões de aprovação/rejeição manual.<br />
+              • Use o simulador abaixo para enviar uma mensagem de teste do WhatsApp para seu próprio celular!
+            </p>
+          </div>
         </div>
-        <p className="text-[13px] text-emerald-700 leading-relaxed mb-4">
-          <strong>Objetivo:</strong> Enviar mensagens rápidas de suporte aos atletas diretamente pelo painel (alertas de pagamento Pix pendente, avisos de confirmação ou retirada de kit).<br />
-          <strong>Como usar:</strong> Clique em <strong>"Ver / Editar"</strong> na ficha de qualquer atleta na tabela abaixo e clique no botão <strong>"Conversar no WhatsApp"</strong> para abrir a janela de chat com mensagem pré-definida de acordo com os dados do atleta.<br />
-          <strong>Como Testar de Forma Prática:</strong> Use o simulador abaixo para enviar uma mensagem de teste com seu próprio número!
-        </p>
 
         {/* Simulador rápido de testes */}
         <div className="bg-white border border-emerald-100 rounded-xl p-4">
           <span className="text-[11px] font-bold uppercase tracking-widest text-brand-muted block mb-3">
-            🧪 Área de Teste Prático (Simulador)
+            🧪 Área de Teste Prático (Simulador WhatsApp)
           </span>
           <div className="flex flex-wrap gap-3 items-end">
             <div className="flex-1 min-w-[200px]">
@@ -466,49 +480,62 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
                     ))}
                   </div>
 
-                  {/* ── REVISÃO MANUAL (status em_analise) ── */}
-                  {atleta.status === 'em_analise' && (
-                    <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 mb-4">
+                  {/* ── REVISÃO MANUAL (status em_analise, pendente com comprovante) ── */}
+                  {(atleta.status === 'em_analise' || atleta.status === 'pendente' || (atleta as any).comprovante_url) && (
+                    <div className={`border-2 rounded-2xl p-4 mb-4 ${
+                      (atleta as any).comprovante_url
+                        ? 'bg-amber-50 border-amber-300'
+                        : 'bg-yellow-50 border-yellow-300'
+                    }`}>
                       <div className="text-[13px] font-bold text-amber-800 mb-3 flex items-center gap-2">
-                        <span className="text-xl">⏳</span> Comprovante aguardando revisão
+                        <span className="text-xl">{(atleta as any).comprovante_url ? '📄' : '⏳'}</span>
+                        {(atleta as any).comprovante_url ? 'Comprovante Pix anexado' : 'Inscrição Aguardando Pix'}
                       </div>
-                      {/* Comprovante — busca da pix_receipt via adminService */}
+                      {/* Comprovante enviado */}
                       {(atleta as any).comprovante_url && (
                         <div className="mb-4">
-                          <div className="text-[11px] text-amber-700 font-semibold mb-2 uppercase tracking-wider">Comprovante enviado</div>
+                          <div className="text-[11px] text-amber-700 font-semibold mb-2 uppercase tracking-wider">Comprovante enviado pelo atleta</div>
                           <a href={(atleta as any).comprovante_url} target="_blank" rel="noopener noreferrer">
                             <img
                               src={(atleta as any).comprovante_url}
                               alt="Comprovante Pix"
-                              className="w-full rounded-xl border border-amber-200 object-contain max-h-64 bg-white"
+                              className="w-full rounded-xl border border-amber-200 object-contain max-h-64 bg-white hover:opacity-90 transition-opacity"
                             />
-                            <div className="text-[11px] text-amber-600 mt-1 text-center">Clique para ver em tamanho completo</div>
+                            <div className="text-[11px] text-amber-600 mt-1 text-center font-medium">🔍 Clique para abrir a imagem em tamanho completo</div>
                           </a>
                         </div>
                       )}
-                      {!(atleta as any).comprovante_url && (
+                      {!(atleta as any).comprovante_url && atleta.status === 'em_analise' && (
                         <div className="bg-amber-100 rounded-xl p-3 text-[12px] text-amber-700 mb-4 text-center">
-                          Imagem do comprovante não disponível (pode ter falhado no upload).
+                          Imagem do comprovante não disponível.
                           <br />Contate o atleta: <strong>{atleta.email}</strong>
+                        </div>
+                      )}
+                      {!(atleta as any).comprovante_url && atleta.status === 'pendente' && (
+                        <div className="bg-yellow-100/80 rounded-xl p-3 text-[12px] text-yellow-800 mb-4">
+                          O atleta ainda não enviou o print do comprovante Pix.
+                          <br />Você pode cobrar via WhatsApp ou confirmar manualmente se já viu o valor no extrato bancário.
                         </div>
                       )}
                       {(atleta as any).gemini_motivo && (
                         <div className="bg-white border border-amber-200 rounded-xl px-3 py-2 text-[12px] text-amber-800 mb-4">
-                          <strong>Motivo da IA:</strong> {(atleta as any).gemini_motivo}
+                          <strong>Análise da IA:</strong> {(atleta as any).gemini_motivo}
                         </div>
                       )}
-                      <div className="grid grid-cols-2 gap-3">
-                        <button id="btn-confirmar-manual" onClick={() => handleRevisao('confirmar')}
-                          disabled={revisando}
-                          className="py-3 rounded-xl bg-green-500 text-white font-bold text-[14px] hover:bg-green-600 transition-colors disabled:opacity-50">
-                          {revisando ? '...' : '✅ Confirmar'}
-                        </button>
-                        <button id="btn-rejeitar-manual" onClick={() => handleRevisao('rejeitar')}
-                          disabled={revisando}
-                          className="py-3 rounded-xl bg-red-500 text-white font-bold text-[14px] hover:bg-red-600 transition-colors disabled:opacity-50">
-                          {revisando ? '...' : '❌ Rejeitar'}
-                        </button>
-                      </div>
+                      {atleta.status !== 'confirmado' && (
+                        <div className="grid grid-cols-2 gap-3">
+                          <button id="btn-confirmar-manual" onClick={() => handleRevisao('confirmar')}
+                            disabled={revisando}
+                            className="py-3 rounded-xl bg-green-500 text-white font-bold text-[14px] hover:bg-green-600 transition-colors disabled:opacity-50 shadow-sm flex items-center justify-center gap-1">
+                            {revisando ? '...' : '✅ Confirmar'}
+                          </button>
+                          <button id="btn-rejeitar-manual" onClick={() => handleRevisao('rejeitar')}
+                            disabled={revisando}
+                            className="py-3 rounded-xl bg-red-500 text-white font-bold text-[14px] hover:bg-red-600 transition-colors disabled:opacity-50 shadow-sm flex items-center justify-center gap-1">
+                            {revisando ? '...' : '❌ Rejeitar'}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
 

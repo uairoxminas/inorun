@@ -140,6 +140,13 @@ Se qualquer regra falhar, aprovado=false com motivo especifico.
     if (insertErr) console.error("pix_receipt insert error:", JSON.stringify(insertErr));
     else           console.log("pix_receipt salvo com sucesso!");
 
+    // Garante salvamento da URL na tabela registration (usando service role)
+    if (comprovante_url) {
+      await supabase.from("registration")
+        .update({ comprovante_url })
+        .eq("id", registration_id);
+    }
+
     // ── 3A. GEMINI APROVOU → confirma imediatamente ──────────────────────
     if (analise.aprovado) {
       const { data: conf, error: confErr } = await supabase
@@ -163,7 +170,7 @@ Se qualquer regra falhar, aprovado=false com motivo especifico.
 
     // ── 3B. GEMINI REPROVOU → status em_analise ──────────────────────────
     await supabase.from("registration")
-      .update({ status: "em_analise" })
+      .update({ status: "em_analise", comprovante_url: comprovante_url || undefined })
       .eq("id", registration_id);
 
     // Email 1 — "aguardando verificação"

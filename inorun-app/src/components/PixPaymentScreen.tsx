@@ -81,12 +81,12 @@ export default function PixPaymentScreen({
       const { data: urlData } = supabase.storage.from("comprovantes").getPublicUrl(fileName);
       const comprovante_url = urlData.publicUrl;
 
-      // ── 2. Salva URL diretamente na tabela registration (padrão UAIROX) ──
-      const { error: updErr } = await supabase
-        .from("registration")
-        .update({ comprovante_url })
-        .eq("id", registration_id);
-      if (updErr) console.warn("Update registration falhou:", updErr.message);
+      // ── 2. Salva URL via RPC salvar_comprovante_url (SECURITY DEFINER bypassa RLS) ──
+      const { error: rpcErr } = await supabase.rpc("salvar_comprovante_url", {
+        p_registration_id: registration_id,
+        p_url: comprovante_url,
+      });
+      if (rpcErr) console.warn("salvar_comprovante_url falhou:", rpcErr.message);
 
       // ── 3. Gemini via Edge Function ──────────────────────────────────────
       const reader = new FileReader();

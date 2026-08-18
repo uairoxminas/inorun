@@ -37,6 +37,9 @@ function MCard({ label, value, sub, cor = 'purple', icon }: {
 export default function AdminDashboard({ metricas, onRecarregar, loading }: Props) {
   const [ultimoUpdate, setUltimoUpdate] = useState(new Date());
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const [enviandoPromo, setEnviandoPromo] = useState(false);
+  const [resultadoPromo, setResultadoPromo] = useState<{ total: number; enviados: number; falhas: number } | null>(null);
+  const [erroPromo, setErroPromo] = useState('');
 
   // Supabase Realtime — atualiza quando chega nova inscrição
   useEffect(() => {
@@ -50,11 +53,37 @@ export default function AdminDashboard({ metricas, onRecarregar, loading }: Prop
     return () => { channelRef.current?.unsubscribe(); };
   }, []);
 
+  const handleEnviarPromo = async () => {
+    if (!confirm(`Enviar o email de promoção do sorteio para TODOS os atletas inscritos?\n\nEssa ação não pode ser desfeita.`)) return;
+    setEnviandoPromo(true);
+    setResultadoPromo(null);
+    setErroPromo('');
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/enviar-promo`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+        }
+      );
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Erro desconhecido');
+      setResultadoPromo({ total: json.total_atletas, enviados: json.enviados, falhas: json.falhas });
+    } catch (e) {
+      setErroPromo(e instanceof Error ? e.message : 'Erro ao enviar');
+    } finally {
+      setEnviandoPromo(false);
+    }
+  };
+
   const camisetas = ['PP', 'P', 'M', 'G', 'GG', 'XG', 'XGG'];
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="font-display font-extrabold italic uppercase text-[32px] text-brand-ink leading-none">
             Dashboard
@@ -64,11 +93,67 @@ export default function AdminDashboard({ metricas, onRecarregar, loading }: Prop
             {' · '}<span className="text-green-600">● Realtime ativo</span>
           </p>
         </div>
-        <button onClick={() => { onRecarregar(); setUltimoUpdate(new Date()); }}
-          disabled={loading} className="btn-ghost text-[13px]">
-          {loading ? '↺ ...' : '↺ Atualizar'}
-        </button>
+        <div className="flex gap-2 flex-wrap">
+          <button
+            id="btn-enviar-promo-email"
+            onClick={handleEnviarPromo}
+            disabled={enviandoPromo}
+            style={{
+              background: 'linear-gradient(135deg, #6b0fa8, #8417AE)',
+              color: '#FFD200',
+              border: '2px solid #FFD200',
+              borderRadius: '10px',
+              padding: '8px 16px',
+              fontSize: '13px',
+              fontWeight: 800,
+              cursor: enviandoPromo ? 'not-allowed' : 'pointer',
+              opacity: enviandoPromo ? 0.7 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            {enviandoPromo ? '⏳ Enviando...' : '🎉 Enviar promoção por email'}
+          </button>
+          <button onClick={() => { onRecarregar(); setUltimoUpdate(new Date()); }}
+            disabled={loading} className="btn-ghost text-[13px]">
+            {loading ? '↺ ...' : '↺ Atualizar'}
+          </button>
+        </div>
       </div>
+
+      {/* Resultado do envio da promoção */}
+      {resultadoPromo && (
+        <div style={{
+          background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)',
+          border: '2px solid #86efac',
+          borderRadius: '14px',
+          padding: '16px 20px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+        }}>
+          <span style={{ fontSize: '28px' }}>✅</span>
+          <div>
+            <div style={{ fontWeight: 800, color: '#166534', fontSize: '14px' }}>Emails enviados com sucesso!</div>
+            <div style={{ fontSize: '13px', color: '#166534', marginTop: '2px' }}>
+              {resultadoPromo.enviados} de {resultadoPromo.total} atletas únicos receberão o email do sorteio
+              {resultadoPromo.falhas > 0 && ` · ⚠️ ${resultadoPromo.falhas} falharam`}
+            </div>
+          </div>
+          <button onClick={() => setResultadoPromo(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: '#166534' }}>✕</button>
+        </div>
+      )}
+      {erroPromo && (
+        <div style={{
+          background: '#fef2f2', border: '2px solid #fca5a5',
+          borderRadius: '14px', padding: '14px 20px',
+          color: '#991b1b', fontSize: '13px', fontWeight: 600,
+        }}>
+          ❌ Erro ao enviar promoção: {erroPromo}
+          <button onClick={() => setErroPromo('')} style={{ marginLeft: '12px', background: 'none', border: 'none', cursor: 'pointer', color: '#991b1b', fontSize: '16px' }}>✕</button>
+        </div>
+      )}
 
       {/* KPIs principais */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
