@@ -82,8 +82,30 @@ export default function GestaoGrupos() {
         </button>
       </div>
 
-      <div className="bg-brand-lilac rounded-xl px-4 py-3 text-[13px] text-brand-purple-dark">
-        Inscrições em grupo (assessorias/equipes). Revise o comprovante e confirme para gerar os números de peito de todos os atletas de uma vez.
+      {/* Card Informativo — Funcionalidade de Validação de Grupos */}
+      <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 shadow-sm space-y-3">
+        <div className="flex items-center gap-2">
+          <span className="text-xl">👥</span>
+          <h4 className="font-display font-bold text-[16px] text-emerald-800 uppercase tracking-wide">
+            Funcionalidade: Validação de Inscrições em Grupo ( Pix Único )
+          </h4>
+        </div>
+        <div className="text-[13px] text-emerald-700 leading-relaxed space-y-2">
+          <p>
+            <strong>Objetivo:</strong> Validar inscrições de equipes e assessorias que efetuam um <strong>único pagamento Pix consolidado</strong> referente a múltiplos atletas.
+          </p>
+          <p>
+            <strong>Como Funciona a Verificação:</strong><br />
+            1. O responsável envia <strong>1 comprovante Pix</strong> com o valor total consolidado do grupo.<br />
+            2. O organizador clica em <strong>"Ver atletas / comprovante"</strong> no grupo desejado abaixo.<br />
+            3. O comprovante Pix é exibido diretamente na tela para conferência do valor total.<br />
+            4. Ao clicar em <strong>"✓ Confirmar grupo"</strong>, o sistema gera automaticamente o <strong>número de peito (Bib Number)</strong> de <strong>todos os atletas do grupo de uma só vez</strong> e envia os e-mails de confirmação.
+          </p>
+          <p>
+            <strong>Forma Prática de Testar:</strong><br />
+            • Para testar, clique em <strong>"Ver atletas / comprovante"</strong> em qualquer grupo pendente abaixo. Você verá a imagem do comprovante único do Pix e a lista completa dos atletas. Clique em <strong>"✓ Confirmar grupo"</strong> para aprovar todos os integrantes em lote.
+          </p>
+        </div>
       </div>
 
       {/* Link de compartilhamento da inscrição em grupo */}
@@ -127,10 +149,10 @@ export default function GestaoGrupos() {
                     </span>
                   </div>
                   <div className="text-[12px] text-brand-muted mt-1">
-                    {g.responsavel_nome} · {g.responsavel_email}{g.responsavel_telefone ? ` · ${g.responsavel_telefone}` : ''}
+                    Responsável: <strong>{g.responsavel_nome}</strong> · {g.responsavel_email}{g.responsavel_telefone ? ` · ${g.responsavel_telefone}` : ''}
                   </div>
                   <div className="text-[12px] text-brand-muted mt-1">
-                    <strong className="text-brand-purple">{g.qtd_atletas} atletas</strong> · Total {formataBRL(g.valor_total_centavos)}
+                    <strong className="text-brand-purple">{g.qtd_atletas} atletas</strong> · Valor Consolidado Pix: <strong className="text-emerald-700">{formataBRL(g.valor_total_centavos)}</strong>
                     {' · '}{new Date(g.created_at).toLocaleDateString('pt-BR')}
                     {g.status === 'confirmado' && ` · ${g.confirmados} confirmados`}
                   </div>
@@ -138,20 +160,20 @@ export default function GestaoGrupos() {
                 <div className="flex items-center gap-2 shrink-0">
                   {g.comprovante_url && (
                     <a href={g.comprovante_url} target="_blank" rel="noreferrer"
-                      className="text-[12px] text-brand-purple hover:underline font-medium px-2 py-1">📎 Comprovante</a>
+                      className="text-[12px] text-brand-purple hover:underline font-medium px-2 py-1">📎 Abrir Comprovante</a>
                   )}
-                  <button onClick={() => abrir(g.id)} className="text-[12px] text-brand-purple hover:underline font-medium px-2 py-1">
-                    {aberto === g.id ? 'Ocultar' : 'Ver atletas'}
+                  <button onClick={() => abrir(g.id)} className="btn-primary text-[12px] py-1.5 px-3">
+                    {aberto === g.id ? 'Ocultar detalhes' : 'Ver atletas / comprovante'}
                   </button>
                 </div>
               </div>
 
-              {/* Ações */}
+              {/* Ações Rápidas */}
               {(g.status === 'em_analise' || g.status === 'pendente') && (
                 <div className="px-4 pb-4 flex gap-2">
                   <button disabled={processando === g.id} onClick={() => handleAcao(g.id, 'confirmar')}
-                    className="btn-primary text-[13px] py-2 px-5">
-                    {processando === g.id ? '...' : '✓ Confirmar grupo'}
+                    className="btn-primary text-[13px] py-2 px-5 bg-green-600 hover:bg-green-700">
+                    {processando === g.id ? '...' : '✓ Confirmar grupo e gerar peitos'}
                   </button>
                   <button disabled={processando === g.id} onClick={() => handleAcao(g.id, 'rejeitar')}
                     className="text-[13px] py-2 px-5 rounded-xl border-2 border-red-200 text-red-500 font-semibold hover:bg-red-50 transition-colors">
@@ -160,35 +182,75 @@ export default function GestaoGrupos() {
                 </div>
               )}
 
-              {/* Lista de atletas */}
+              {/* Detalhes expandidos: Comprovante Pix + Lista de Atletas */}
               {aberto === g.id && (
-                <div className="border-t border-brand-lilac-mid bg-brand-bg/50 overflow-x-auto">
-                  <table className="w-full text-[13px]">
-                    <thead>
-                      <tr className="text-brand-muted text-[11px] uppercase tracking-wide">
-                        {['Nome', 'CPF', 'Prova', 'Categoria', 'Cam.', 'Modelo', 'Bib', 'Status'].map(h => (
-                          <th key={h} className="px-3 py-2 text-left font-medium">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(atletas[g.id] ?? []).map(a => (
-                        <tr key={a.registration_id} className="border-t border-brand-lilac-mid">
-                          <td className="px-3 py-2 font-medium text-brand-ink">{a.nome}</td>
-                          <td className="px-3 py-2 text-brand-muted">{a.cpf}</td>
-                          <td className="px-3 py-2 text-brand-muted">{a.prova}</td>
-                          <td className="px-3 py-2 text-brand-muted">{a.categoria}</td>
-                          <td className="px-3 py-2 text-brand-muted">{a.camiseta}</td>
-                          <td className="px-3 py-2 text-brand-muted">{a.camiseta_modelo === 'babylook' ? 'Baby Look' : 'Unissex'}</td>
-                          <td className="px-3 py-2 font-bold text-brand-purple">{a.bib_number ?? '—'}</td>
-                          <td className="px-3 py-2 text-brand-muted">{a.status}</td>
+                <div className="border-t border-brand-lilac-mid bg-brand-bg/50 p-4 space-y-4">
+                  {/* Pré-visualização do Comprovante Pix Consolidado */}
+                  <div className="bg-white border border-brand-lilac-mid rounded-xl p-4">
+                    <div className="text-[12px] font-bold text-brand-purple-dark uppercase tracking-wider mb-2">
+                      📷 Comprovante Pix do Grupo (Valor Consolidado: {formataBRL(g.valor_total_centavos)})
+                    </div>
+                    {g.comprovante_url ? (
+                      <div className="text-center">
+                        <a href={g.comprovante_url} target="_blank" rel="noreferrer">
+                          <img
+                            src={g.comprovante_url}
+                            alt="Comprovante Pix do Grupo"
+                            className="max-h-72 mx-auto rounded-xl border border-brand-lilac-mid object-contain hover:opacity-90 transition-opacity bg-white"
+                          />
+                          <div className="text-[11px] text-brand-purple mt-1 font-medium">🔍 Clique para abrir a imagem em tela cheia</div>
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[12px] text-amber-800 text-center">
+                        ⚠️ O responsável pelo grupo ainda não anexou o comprovante Pix.
+                        {g.responsavel_telefone && (
+                          <div className="mt-2">
+                            <a
+                              href={`https://wa.me/55${g.responsavel_telefone.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá, ${g.responsavel_nome}! Estamos aguardando o comprovante do Pix para confirmar a inscrição da equipe ${g.nome_grupo} no INO RUN 2026.`)}`}
+                              target="_blank" rel="noreferrer"
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#25D366] text-white font-bold text-[12px]"
+                            >
+                              💬 Lembrar via WhatsApp
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Tabela de atletas */}
+                  <div className="overflow-x-auto">
+                    <div className="text-[12px] font-bold text-brand-ink uppercase tracking-wider mb-2">
+                      🏃 Atletas Integrantes do Grupo ({atletas[g.id]?.length ?? 0} inscritos)
+                    </div>
+                    <table className="w-full text-[13px] bg-white rounded-xl overflow-hidden border border-brand-lilac-mid">
+                      <thead>
+                        <tr className="text-brand-muted text-[11px] uppercase tracking-wide bg-brand-bg">
+                          {['Nome', 'CPF', 'Prova', 'Categoria', 'Cam.', 'Modelo', 'Bib', 'Status'].map(h => (
+                            <th key={h} className="px-3 py-2 text-left font-medium">{h}</th>
+                          ))}
                         </tr>
-                      ))}
-                      {(atletas[g.id] ?? []).length === 0 && (
-                        <tr><td colSpan={8} className="px-3 py-4 text-center text-brand-muted">Carregando atletas...</td></tr>
-                      )}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {(atletas[g.id] ?? []).map(a => (
+                          <tr key={a.registration_id} className="border-t border-brand-lilac-mid hover:bg-brand-lilac/30">
+                            <td className="px-3 py-2 font-medium text-brand-ink">{a.nome}</td>
+                            <td className="px-3 py-2 text-brand-muted">{a.cpf}</td>
+                            <td className="px-3 py-2 text-brand-muted">{a.prova}</td>
+                            <td className="px-3 py-2 text-brand-muted">{a.categoria}</td>
+                            <td className="px-3 py-2 text-brand-muted">{a.camiseta}</td>
+                            <td className="px-3 py-2 text-brand-muted">{a.camiseta_modelo === 'babylook' ? 'Baby Look' : 'Unissex'}</td>
+                            <td className="px-3 py-2 font-bold text-brand-purple">{a.bib_number ?? '—'}</td>
+                            <td className="px-3 py-2 text-brand-muted">{a.status}</td>
+                          </tr>
+                        ))}
+                        {(atletas[g.id] ?? []).length === 0 && (
+                          <tr><td colSpan={8} className="px-3 py-4 text-center text-brand-muted">Carregando atletas...</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </div>
