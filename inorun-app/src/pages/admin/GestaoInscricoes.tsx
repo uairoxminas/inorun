@@ -1,6 +1,6 @@
 // src/pages/admin/GestaoInscricoes.tsx — Gestão de inscrições com drawer de edição
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { formataBRL } from '../../lib/precoLoteAtual';
 import { cancelarInscricao, excluirInscricao, editarInscricao, gerarCSV } from '../../services/adminService';
 import type { InscritoRow } from '../../services/adminService';
@@ -31,6 +31,45 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
   const [filtroStatus, setFiltroStatus] = useState('todos');
   const [testFone, setTestFone]         = useState('');
   const [testMsg, setTestMsg]           = useState('Olá! Esta é uma mensagem de teste do painel administrativo INO RUN 2026. 🏃');
+  const [enviandoComprovanteAdmin, setEnviandoComprovanteAdmin] = useState(false);
+  const adminFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleUploadManualAdmin = async (file: File) => {
+    if (!atleta) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      alert('Formato inválido. Selecione um print ou foto em JPG, PNG ou WEBP.');
+      return;
+    }
+    setEnviandoComprovanteAdmin(true);
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const fileName = `${atleta.registration_id}-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from('comprovantes')
+        .upload(fileName, file, { contentType: file.type, upsert: true });
+      if (upErr) throw new Error('Falha no upload do arquivo: ' + upErr.message);
+
+      const { data: urlData } = supabase.storage.from('comprovantes').getPublicUrl(fileName);
+      const comprovante_url = urlData.publicUrl;
+
+      // Grava a URL via RPC (SECURITY DEFINER) e fallback direto
+      const { error: rpcErr } = await supabase.rpc('salvar_comprovante_url', {
+        p_registration_id: atleta.registration_id,
+        p_url: comprovante_url,
+      });
+      if (rpcErr) {
+        await supabase.from('registration').update({ comprovante_url }).eq('id', atleta.registration_id);
+      }
+
+      setAtleta(prev => prev ? { ...prev, comprovante_url } : null);
+      await onRecarregar();
+      alert('✅ Comprovante anexado com sucesso na ficha do atleta!');
+    } catch (err: any) {
+      alert('Erro ao anexar comprovante: ' + (err.message || String(err)));
+    } finally {
+      setEnviandoComprovanteAdmin(false);
+    }
+  };
 
   const getWhatsAppLink = (tel: string, msg: string) => {
     let clean = tel.replace(/\D/g, '');
@@ -249,23 +288,24 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
           <div className="flex items-center gap-2 mb-2">
             <span className="text-xl">🟢</span>
             <h4 className="font-display font-bold text-[16px] text-emerald-800 uppercase tracking-wide">
-              Funcionalidade: Gestão de Comprovantes Pix e Comunicação WhatsApp
+              Funcionalidade: Gestão de Comprovantes Pix, Anexo Manual e WhatsApp
             </h4>
           </div>
           <div className="text-[13px] text-emerald-700 leading-relaxed space-y-2">
             <p>
-              <strong>Objetivo:</strong> Permitir aos organizadores visualizar e validar comprovantes de pagamento Pix enviadas pelos atletas (inscrições pendentes ou em análise), além de possibilitar contato direto via WhatsApp.
+              <strong>Objetivo:</strong> Permitir aos organizadores visualizar e validar comprovantes de pagamento Pix, anexar manualmente prints recebidos de atletas pelo WhatsApp, e enviar mensagens de suporte.
             </p>
             <p>
               <strong>Instruções de Uso:</strong><br />
               1. Filtre as inscrições abaixo por <strong>"Pendentes"</strong> ou <strong>"⏳ Em Análise"</strong>.<br />
               2. Clique no botão <strong>"Ver / Editar"</strong> na linha do atleta.<br />
-              3. Se o atleta enviou o comprovante, a imagem será exibida em destaque. Clique na imagem para expandi-la e use os botões <strong>"✅ Confirmar"</strong> (para gerar o Bib number) ou <strong>"❌ Rejeitar"</strong>.<br />
-              4. Se o atleta ainda não enviou, use o botão <strong>"Conversar no WhatsApp"</strong> para enviar um lembrete amigável.
+              3. <strong>Se o atleta anexou no site:</strong> a imagem aparecerá na ficha. Confira os dados e use os botões <strong>"✅ Confirmar"</strong> (para gerar o número de peito) ou <strong>"❌ Rejeitar"</strong>.<br />
+              4. <strong>Se o atleta te enviou o print pelo WhatsApp:</strong> clique no botão <strong>"📎 Anexar Comprovante"</strong> dentro da ficha do atleta para salvar a imagem no sistema e depois clique em <strong>"✅ Confirmar"</strong>.<br />
+              5. <strong>Se o atleta ainda não enviou:</strong> clique em <strong>"Conversar no WhatsApp"</strong> para mandar uma mensagem direta.
             </p>
             <p>
               <strong>Como Testar de Forma Prática:</strong><br />
-              • Abra a ficha de qualquer inscrito na tabela abaixo para visualizar a imagem do comprovante Pix e testar os botões de aprovação/rejeição manual.<br />
+              • Abra a ficha de qualquer atleta com status <em>pendente</em> (ex: Carlos Lucio), clique em <strong>"📎 Anexar Comprovante"</strong> e selecione um print de teste para vê-lo salvo na hora.<br />
               • Use o simulador abaixo para enviar uma mensagem de teste do WhatsApp para seu próprio celular!
             </p>
           </div>
@@ -522,15 +562,43 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
                           <strong>Análise da IA:</strong> {(atleta as any).gemini_motivo}
                         </div>
                       )}
+
+                      {/* Botão para o Organizador Anexar Comprovante do WhatsApp */}
+                      <div className="bg-white/80 border border-amber-200 rounded-xl p-3 mb-4 flex items-center justify-between gap-2 flex-wrap">
+                        <div className="text-[12px] text-amber-900 font-medium">
+                          {(atleta as any).comprovante_url ? 'Substituir/Reenviar comprovante:' : 'Atleta enviou comprovante no WhatsApp?'}
+                        </div>
+                        <button
+                          type="button"
+                          id="btn-anexar-comprovante-admin"
+                          onClick={() => adminFileInputRef.current?.click()}
+                          disabled={enviandoComprovanteAdmin}
+                          className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[12px] transition-colors flex items-center gap-1 shadow-sm shrink-0 disabled:opacity-50"
+                        >
+                          {enviandoComprovanteAdmin ? '⏳ Enviando...' : '📎 Anexar Comprovante'}
+                        </button>
+                        <input
+                          ref={adminFileInputRef}
+                          type="file"
+                          className="hidden"
+                          accept="image/jpeg,image/png,image/webp"
+                          onChange={e => {
+                            const file = e.target.files?.[0];
+                            if (file) handleUploadManualAdmin(file);
+                            e.target.value = '';
+                          }}
+                        />
+                      </div>
+
                       {atleta.status !== 'confirmado' && (
                         <div className="grid grid-cols-2 gap-3">
                           <button id="btn-confirmar-manual" onClick={() => handleRevisao('confirmar')}
-                            disabled={revisando}
+                            disabled={revisando || enviandoComprovanteAdmin}
                             className="py-3 rounded-xl bg-green-500 text-white font-bold text-[14px] hover:bg-green-600 transition-colors disabled:opacity-50 shadow-sm flex items-center justify-center gap-1">
                             {revisando ? '...' : '✅ Confirmar'}
                           </button>
                           <button id="btn-rejeitar-manual" onClick={() => handleRevisao('rejeitar')}
-                            disabled={revisando}
+                            disabled={revisando || enviandoComprovanteAdmin}
                             className="py-3 rounded-xl bg-red-500 text-white font-bold text-[14px] hover:bg-red-600 transition-colors disabled:opacity-50 shadow-sm flex items-center justify-center gap-1">
                             {revisando ? '...' : '❌ Rejeitar'}
                           </button>

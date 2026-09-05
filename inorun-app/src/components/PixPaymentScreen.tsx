@@ -58,6 +58,9 @@ export default function PixPaymentScreen({
     const reader = new FileReader();
     reader.onload = e => setPreview(e.target?.result as string);
     reader.readAsDataURL(file);
+
+    // Dispara o upload e a validação do comprovante automaticamente ao selecionar!
+    enviarComprovante(file);
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -66,16 +69,17 @@ export default function PixPaymentScreen({
     if (file) handleArquivo(file);
   };
 
-  const enviarComprovante = async () => {
-    if (!arquivo) { setErro("Selecione o comprovante antes de enviar."); return; }
+  const enviarComprovante = async (arquivoOverride?: File) => {
+    const fileToUpload = arquivoOverride || arquivo;
+    if (!fileToUpload) { setErro("Selecione o comprovante antes de enviar."); return; }
     setLoading(true); setErro(""); setRejeitado("");
     try {
       // ── 1. Upload para Storage (padrão UAIROX) ───────────────────────────
-      const ext  = arquivo.name.split(".").pop() || "jpg";
+      const ext  = fileToUpload.name.split(".").pop() || "jpg";
       const fileName = `${registration_id}-${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from("comprovantes")
-        .upload(fileName, arquivo, { contentType: arquivo.type, upsert: true });
+        .upload(fileName, fileToUpload, { contentType: fileToUpload.type, upsert: true });
       if (upErr) throw new Error("Falha no upload: " + upErr.message);
 
       const { data: urlData } = supabase.storage.from("comprovantes").getPublicUrl(fileName);
@@ -93,12 +97,12 @@ export default function PixPaymentScreen({
       const base64 = await new Promise<string>((resolve, reject) => {
         reader.onload = () => resolve((reader.result as string).split(",")[1]);
         reader.onerror = reject;
-        reader.readAsDataURL(arquivo);
+        reader.readAsDataURL(fileToUpload);
       });
 
       const resultado = await verificarComprovantePix(
         registration_id, valor_total, atleta_email, atleta_nome,
-        prova_label, categoria, base64, arquivo.type, comprovante_url
+        prova_label, categoria, base64, fileToUpload.type, comprovante_url
       );
 
       // Dispara evento Purchase no Meta Ads (Pixel + Conversions API CAPI)
@@ -253,7 +257,7 @@ export default function PixPaymentScreen({
       )}
 
       {/* Botao enviar */}
-      <button id="btn-enviar-comprovante" onClick={enviarComprovante}
+      <button id="btn-enviar-comprovante" onClick={() => enviarComprovante()}
         disabled={!arquivo || loading}
         className="w-full py-4 rounded-2xl font-display font-extrabold italic uppercase text-[17px]
           bg-brand-purple text-white hover:bg-brand-purple-dark disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 shadow-md">
