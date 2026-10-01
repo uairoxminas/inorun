@@ -9,6 +9,7 @@ import { validaCPF, formataCPF } from '../lib/validaCPF';
 import { formataBRL } from '../lib/precoLoteAtual';
 import { MIN_GRUPO, calcResumoGrupo } from '../lib/precoGrupo';
 import { tamanhosDisponiveis } from '../lib/camisetas';
+import { grupoAberto } from '../lib/ultimaChamada';
 import TabelaMedidasModal from '../components/TabelaMedidasModal';
 import { getEventoPublico } from '../services/eventoService';
 import type { EventoData } from '../services/eventoService';
@@ -120,6 +121,7 @@ export default function GroupRegisterFlow({ onBack, onDone }: Props) {
 
   const handleCriar = async () => {
     if (!atletasValidos || temDuplicado) return;
+    if (!grupoAberto()) { setErro('As inscrições em grupo encerraram em 05/10.'); return; }
     setEnviando(true); setErro('');
     try {
       const payload: AtletaGrupo[] = atletas.map(a => ({
@@ -191,6 +193,28 @@ export default function GroupRegisterFlow({ onBack, onDone }: Props) {
     </div>
   );
 
+  // Grupo encerra em 05/10. Quem já criou o grupo (step 3+) ainda consegue enviar o comprovante.
+  if (!grupoAberto() && step < 3) return (
+    <div className="bg-brand-bg text-brand-ink font-sans min-h-screen">
+      <div className="mx-auto px-5 py-6 max-w-[560px]">
+        <div className="flex items-center justify-between">
+          <button onClick={onBack} className="btn-ghost">← Voltar ao site</button>
+          <Logo height={28} />
+        </div>
+        <div id="grupo-encerrado" className="mt-8 bg-red-50 border-2 border-red-400 rounded-2xl p-6 text-center">
+          <div className="font-display font-extrabold italic uppercase text-[24px] text-red-700 leading-tight">
+            Inscrições em grupo encerradas
+          </div>
+          <p className="text-[14px] text-red-700 mt-2">
+            As inscrições em grupo encerraram em <strong>05/10</strong>. A inscrição individual segue aberta
+            até <strong>10/10</strong> pelo lote Última Chamada — sem camisa e sem plaquinha personalizada.
+          </p>
+        </div>
+        <button onClick={onBack} className="btn-primary w-full mt-6 text-[18px] py-4">Voltar ao site</button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="bg-brand-bg text-brand-ink font-sans min-h-screen">
       <div className="mx-auto px-5 py-6 max-w-[880px]">
@@ -208,7 +232,8 @@ export default function GroupRegisterFlow({ onBack, onDone }: Props) {
         <div className="mt-5 bg-brand-lilac border border-brand-lilac-mid rounded-xl px-4 py-3 text-[13px] text-brand-purple-dark">
           <strong>Inscrição em Grupo — INO RUN 2026.</strong> A partir de {MIN_GRUPO} atletas,
           cada inscrição sai por <strong>{formataBRL(8900)}</strong> (+ {formataBRL(500)} de taxa por atleta).
-          Pagamento em um único Pix consolidado.
+          Pagamento em um único Pix consolidado.{' '}
+          <strong>Inscrições em grupo até 05/10.</strong>
         </div>
 
         {/* Progress */}

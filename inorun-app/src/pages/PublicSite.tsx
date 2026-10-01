@@ -9,6 +9,8 @@ import CountdownBox from '../components/ui/CountdownBox';
 import ProvaCard from '../components/ui/ProvaCard';
 import LoteCard from '../components/ui/LoteCard';
 import KitItem from '../components/ui/KitItem';
+import AvisoUltimaChamada from '../components/ui/AvisoUltimaChamada';
+import { grupoAberto, kitCompletoDisponivel } from '../lib/ultimaChamada';
 import { useCountdown } from '../hooks/useCountdown';
 import { getEventoPublico, getLoteAtivo, getLotesDaProva } from '../services/eventoService';
 import type { EventoData } from '../services/eventoService';
@@ -29,7 +31,8 @@ interface Props {
 const FAQ_ITEMS = [
   { q: 'Como funciona a retirada do kit?',    a: 'A retirada será na INOLIVE, na semana da prova, mediante documento com foto e comprovante de inscrição.' },
   { q: 'Como são definidas as categorias?',   a: 'Corrida 5 km e 10 km: masculino e feminino com premiação por faixa etária — Sub-20 (13-19), 20-29, 30-39, 40-49 e 50+. Kids Geral (até 12 anos · 300 metros): todos ganham medalha. Caminhada 5 km: todos ganham medalha. A categoria é calculada pela idade na data da prova (11/10/2026).' },
-  { q: 'Posso me inscrever em grupo?',         a: 'Sim! Grupos, assessorias e equipes com 10 atletas ou mais têm valor especial de R$89 por inscrição. O responsável cadastra todos de uma vez e paga em um único Pix. Use o botão "Inscrição em grupo".' },
+  { q: 'Até quando posso me inscrever?',       a: 'As inscrições vão até 10/10/2026 pelo lote Última Chamada (R$119). Inscrições feitas até 05/10 incluem camisa e plaquinha personalizada. Inscrições de 06/10 até 10/10 são sem camisa e sem plaquinha personalizada.' },
+  { q: 'Posso me inscrever em grupo?',         a: 'Sim! Grupos, assessorias e equipes com 10 atletas ou mais têm valor especial de R$89 por inscrição. O responsável cadastra todos de uma vez e paga em um único Pix. Use o botão "Inscrição em grupo". As inscrições em grupo encerram em 05/10/2026.' },
   { q: 'O pagamento via Pix confirma na hora?', a: 'Sim. A confirmação por Pix é automática e o número de peito é gerado em seguida.' },
   { q: 'Posso transferir minha inscrição?',   a: 'Sim, transferências são permitidas até 15 dias antes do evento pelo painel do atleta.' },
   { q: 'Como funciona a prova Kids?',          a: 'A prova Kids é uma corrida de 300 metros para crianças de até 12 anos. Todos os participantes ganham medalha e sobem ao pódio — não há classificação competitiva, só celebração!' },
@@ -267,7 +270,7 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
             <button id="hero-garantir-vaga" onClick={onRegister} className="btn-primary text-[18px] md:text-xl px-9 py-4 w-full sm:w-auto">
               Garantir vaga
             </button>
-            {onRegisterGrupo && (
+            {onRegisterGrupo && grupoAberto() && (
               <button id="hero-inscricao-grupo" onClick={onRegisterGrupo}
                 className="btn-outline text-[16px] md:text-lg px-7 py-4 w-full sm:w-auto">
                 👥 Inscrição em grupo
@@ -467,6 +470,10 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
               </div>
             </div>
           )}
+
+          <div className="mt-6">
+            <AvisoUltimaChamada />
+          </div>
         </div>
       </section>
 
@@ -501,6 +508,10 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {KIT_ITEMS.map((k, i) => <KitItem key={k.item} numero={i + 1} item={k.item} det={k.det} />)}
         </div>
+        <p className="mt-5 text-[14px] font-semibold text-brand-ink">
+          ⚠️ Camisa e plaquinha personalizada: somente para inscrições feitas até 05/10.
+          Inscrições de 06/10 até 10/10 são sem camisa e sem plaquinha personalizada.
+        </p>
       </section>
 
       {/* ── PATROCINADORES ── */}
@@ -539,7 +550,9 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
             Sinta a energia da chegada
           </h2>
           <p className="text-white/70 mt-4 text-base max-w-md mx-auto">
-            Vagas limitadas. Garanta a sua agora com o menor preço do Lote 1.
+            {kitCompletoDisponivel()
+              ? 'Vagas limitadas. Inscreva-se até 05/10 para garantir camisa e plaquinha personalizada.'
+              : 'Vagas limitadas. Inscrições até 10/10, sem camisa e sem plaquinha personalizada.'}
           </p>
           <button id="cta-quero-correr" onClick={onRegister} className="mt-8 btn-accent text-xl px-10 py-4">
             Quero correr
@@ -628,7 +641,7 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
                   <strong>Artigo 4º.</strong> As inscrições serão realizadas exclusivamente pela plataforma online do evento, sendo o limite de vagas fixado em <strong>280 vagas para a prova de 5 km</strong> e <strong>160 vagas para a prova de 10 km</strong>.
                 </p>
                 <p>
-                  <strong>Artigo 5º.</strong> Os valores e prazos de inscrição seguem o cronograma abaixo. <strong>As inscrições encerram em 01/10/2026</strong> para todas as modalidades.
+                  <strong>Artigo 5º.</strong> Os valores e prazos de inscrição seguem o cronograma abaixo. <strong>As inscrições encerram em 10/10/2026</strong> para todas as modalidades.
                 </p>
                   <table className="w-full text-sm text-left border-collapse">
                     <thead>
@@ -636,6 +649,7 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
                         <th className="p-2.5 text-brand-purple-dark">Modalidade</th>
                         <th className="p-2.5 text-brand-purple-dark">Lote 1 (até 15/08)</th>
                         <th className="p-2.5 text-brand-purple-dark">Lote 2 (até 01/10)</th>
+                        <th className="p-2.5 text-brand-purple-dark">Última Chamada (02/10 a 10/10)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-brand-lilac-mid">
@@ -643,20 +657,23 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
                         <td className="p-2.5 font-semibold">Corrida 5 km</td>
                         <td className="p-2.5">R$ 99,00</td>
                         <td className="p-2.5">R$ 109,00</td>
+                        <td className="p-2.5">R$ 119,00</td>
                       </tr>
                       <tr>
                         <td className="p-2.5 font-semibold">Corrida 10 km</td>
                         <td className="p-2.5">R$ 99,00</td>
                         <td className="p-2.5">R$ 109,00</td>
+                        <td className="p-2.5">R$ 119,00</td>
                       </tr>
                       <tr>
                         <td className="p-2.5 font-semibold">Caminhada 5 km</td>
                         <td className="p-2.5">R$ 99,00</td>
                         <td className="p-2.5">R$ 109,00</td>
+                        <td className="p-2.5">R$ 119,00</td>
                       </tr>
                       <tr>
                         <td className="p-2.5 font-semibold">Kids (até 12 · 300m)</td>
-                        <td className="p-2.5" colSpan={2}>
+                        <td className="p-2.5" colSpan={3}>
                           <span className="text-green-600 font-bold">Gratuita</span>
                           <span className="text-brand-muted text-[12px] ml-1">(apenas R$5,00 de taxa · sem camiseta · inclui medalha)</span>
                         </td>
@@ -665,7 +682,10 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
                   </table>
                   <p className="text-[12px] text-brand-muted mt-2">* Todos os valores acrescidos de R$ 5,00 de taxa de plataforma por inscrição.</p>
                 <p>
-                  <strong>Artigo 5º-A.</strong> <strong>Inscrição em grupo:</strong> grupos, assessorias e equipes com 10 (dez) atletas ou mais pagam <strong>R$ 89,00 por inscrição</strong> (válido para 5 km, 10 km e Caminhada), realizada em um único pagamento pelo responsável do grupo. A modalidade Kids não participa da inscrição em grupo.
+                  <strong>Parágrafo único.</strong> No lote Última Chamada, <strong>inscrições realizadas até 05/10/2026 incluem camisa e plaquinha personalizada</strong>. <strong>Inscrições realizadas de 06/10/2026 até 10/10/2026 não incluem camisa nem plaquinha personalizada.</strong>
+                </p>
+                <p>
+                  <strong>Artigo 5º-A.</strong> <strong>Inscrição em grupo:</strong> grupos, assessorias e equipes com 10 (dez) atletas ou mais pagam <strong>R$ 89,00 por inscrição</strong> (válido para 5 km, 10 km e Caminhada), realizada em um único pagamento pelo responsável do grupo. <strong>As inscrições em grupo encerram em 05/10/2026.</strong> A modalidade Kids não participa da inscrição em grupo.
                 </p>
                 <p>
                   <strong>Artigo 6º.</strong> O CPF do participante é obrigatório, servindo como identificador único. Não serão permitidas inscrições duplicadas do mesmo CPF no mesmo evento.
@@ -694,7 +714,7 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
               <section className="space-y-3">
                 <h2 className="font-display font-bold text-lg text-brand-purple-dark">CAPÍTULO V – RETIRADA DE KITS</h2>
                 <p>
-                  <strong>Artigo 9º.</strong> O kit oficial de participação do atleta compreende a camiseta dry-fit técnica exclusiva da prova (disponível nos modelos <strong>Unissex</strong> e <strong>Baby Look</strong>), o número de peito e o chip de cronometragem. <strong>A modalidade Kids Geral não inclui camiseta</strong> — apenas a <strong>medalha de participação</strong>, que é entregue a todos os participantes.
+                  <strong>Artigo 9º.</strong> O kit oficial de participação do atleta compreende a camiseta dry-fit técnica exclusiva da prova (disponível nos modelos <strong>Unissex</strong> e <strong>Baby Look</strong>), o número de peito e o chip de cronometragem. <strong>A modalidade Kids Geral não inclui camiseta</strong> — apenas a <strong>medalha de participação</strong>, que é entregue a todos os participantes. <strong>Inscrições realizadas a partir de 06/10/2026 não incluem camiseta nem plaquinha personalizada</strong> (Artigo 5º, parágrafo único).
                 </p>
                 <p>
                   <strong>Artigo 10.</strong> A entrega de kits ocorrerá na <strong>INOLIVE</strong>, na <strong>semana da prova</strong>, em horários divulgados nas mídias oficiais. Para retirada, o atleta deve apresentar documento oficial com foto e o comprovante de pagamento. A retirada por terceiros exige autorização assinada e cópia do documento do titular.

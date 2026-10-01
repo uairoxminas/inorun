@@ -9,6 +9,8 @@ import type { Modalidade } from '../lib/calcCategoria';
 import { validaCPF, formataCPF } from '../lib/validaCPF';
 import { formataBRL } from '../lib/precoLoteAtual';
 import { tamanhosDisponiveis } from '../lib/camisetas';
+import { kitCompletoDisponivel } from '../lib/ultimaChamada';
+import AvisoUltimaChamada from '../components/ui/AvisoUltimaChamada';
 import { getEventoPublico, getLoteAtivo, validarCupom } from '../services/eventoService';
 import { criarInscricaoPendente, buscarInscricaoPendente } from '../services/inscricaoService';
 import type { EventoData } from '../services/eventoService';
@@ -49,6 +51,7 @@ interface FormState {
   email: string; tel: string; emergencia: string;
   camiseta: string; camiseta_modelo: 'unissex' | 'babylook';
   cupom: string; pag: 'pix'; termo: boolean;
+  cienteSemKit: boolean; // ciência obrigatória quando a inscrição não inclui camisa/plaquinha
 }
 
 export default function RegisterFlow({ onBack, onDone }: Props) {
@@ -70,6 +73,7 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
     nome: '', cpf: '', nasc: '', sexo: '',
     email: '', tel: '', emergencia: '',
     camiseta: '', camiseta_modelo: 'unissex', cupom: '', pag: 'pix', termo: false,
+    cienteSemKit: false,
   });
   const [verTabela, setVerTabela] = useState(false);
   const [verTermo, setVerTermo]   = useState(false);
@@ -116,6 +120,10 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
   const valorInscricao  = Math.round(precoBase * (1 - desconto)); // pós-cupom, sem taxa
   const total           = valorInscricao + TAXA_PLATAFORMA;   // total cobrado do atleta
 
+  // Última Chamada: após 05/10 corrida e caminhada não incluem camisa nem plaquinha.
+  // Kids nunca teve camiseta — segue a regra própria dele.
+  const semKit = f.modalidade !== 'kids' && !kitCompletoDisponivel();
+
   // Categoria calculada automaticamente
   const categoria = useMemo(() => {
     if (!f.nasc || !f.sexo || !f.modalidade) return '—';
@@ -158,9 +166,9 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
     2: !!f.nome && !!f.cpf && !!f.nasc && !!f.email && !!f.tel && !!f.emergencia &&
        !cpfErro && !idadeErro &&
        (!sexoObrigatorio || !!f.sexo),
-    // Kids não tem camiseta — step 3 avança sem seleção de tamanho
-    3: f.modalidade === 'kids' ? true : !!f.camiseta,
-    4: f.termo,
+    // Kids e inscrições sem kit não têm camiseta — step 3 avança sem seleção de tamanho
+    3: f.modalidade === 'kids' || semKit ? true : !!f.camiseta,
+    4: f.termo && (!semKit || f.cienteSemKit),
   };
 
   const handleCpfBlur = () => {
@@ -179,6 +187,13 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
   // Submete a inscrição no Supabase
   const handlePagar = async () => {
     if (!evento || !race || !loteAtual) return;
+    // Reavalia no clique: a página pode ter ficado aberta na virada de 05 para 06/10
+    const semKitAgora = f.modalidade !== 'kids' && !kitCompletoDisponivel();
+    const semCamiseta = f.modalidade === 'kids' || semKitAgora;
+    if (semKitAgora && !f.cienteSemKit) {
+      setErroEnvio('O prazo para camisa e plaquinha personalizada encerrou em 05/10. Confirme a ciência acima para continuar.');
+      return;
+    }
     setEnviando(true);
     setErroEnvio('');
     try {
@@ -194,9 +209,9 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
           lot_id:                   loteAtual.id,
           event_id:                 evento.id,
           modalidade:               f.modalidade as Modalidade,
-          // Kids não inclui camiseta — envia null
-          camiseta:                 f.modalidade === 'kids' ? null : (f.camiseta as 'PP' | 'P' | 'M' | 'G' | 'GG' | 'XG' | 'XGG' | '4' | '6' | '8' | '10' | '12' | '14'),
-          camiseta_modelo:          f.modalidade === 'kids' ? null : f.camiseta_modelo,
+          // Kids e inscrições após 05/10 não incluem camiseta — envia null
+          camiseta:                 semCamiseta ? null : (f.camiseta as 'PP' | 'P' | 'M' | 'G' | 'GG' | 'XG' | 'XGG' | '4' | '6' | '8' | '10' | '12' | '14'),
+          camiseta_modelo:          semCamiseta ? null : f.camiseta_modelo,
           cupom_id:                 cupomInfo?.id,
           valor_centavos:           valorInscricao,
           taxa_plataforma_centavos: TAXA_PLATAFORMA,
@@ -303,6 +318,8 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
         {/* ── STEP 1: Escolha a prova ── */}
         {step === 1 && (
           <div className="mt-6 grid gap-5">
+
+            <AvisoUltimaChamada />
 
             {/* 🎉 BANNER PROMOÇÃO SORTEIO TAMARIN + INOLIVE */}
             <a
@@ -606,9 +623,27 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
               </div>
             )}
 
-            {/* Modelo da camiseta — oculto para Kids (sem camiseta) */}
-            {f.modalidade !== 'kids' && (
+            {/* Última Chamada após 05/10 — sem camisa e sem plaquinha */}
+            {semKit && (
+              <div id="aviso-sem-kit" className="bg-red-50 border-2 border-red-400 rounded-2xl p-5">
+                <div className="font-display font-extrabold italic uppercase text-[20px] text-red-700 leading-tight">
+                  🚫 Esta inscrição NÃO inclui camisa nem plaquinha personalizada
+                </div>
+                <p className="text-[13px] text-red-700 mt-2">
+                  O prazo para garantir camisa e plaquinha personalizada encerrou em <strong>05/10</strong>.
+                  Inscrições de 06/10 até 10/10 são sem camisa e sem plaquinha personalizada.
+                </p>
+              </div>
+            )}
+
+            {/* Modelo da camiseta — oculto para Kids e para inscrições sem kit */}
+            {f.modalidade !== 'kids' && !semKit && (
               <>
+                <div className="bg-green-50 border border-green-400 rounded-xl px-4 py-3 text-[13px] text-green-800">
+                  <strong>👕 Sua inscrição inclui camisa e plaquinha personalizada.</strong><br />
+                  Válido para inscrições feitas até 05/10. De 06/10 até 10/10 as inscrições são sem camisa e sem plaquinha.
+                </div>
+
                 <div>
                   <label className="label">Modelo da camiseta</label>
                   <div className="grid grid-cols-2 gap-3">
@@ -682,8 +717,11 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
             <div className={`rounded-2xl p-5 border-2 ${modConf ? modConf.cor : 'bg-white border-brand-lilac-mid'}`}>
               <div className="text-[14px] text-brand-muted">
                 {race?.label} · {categoria}
-                {f.modalidade !== 'kids' && f.camiseta && (
+                {f.modalidade !== 'kids' && !semKit && f.camiseta && (
                   <> · Camiseta {f.camiseta} ({f.camiseta_modelo === 'babylook' ? 'Baby Look' : 'Unissex'})</>
+                )}
+                {semKit && (
+                  <> · <strong className="text-red-700">🚫 Sem camisa e sem plaquinha personalizada</strong></>
                 )}
                 {f.modalidade === 'kids' && (
                   <> · 🏅 Inclui medalha · 👕 Sem camiseta</>
@@ -734,6 +772,19 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
               </div>
               <span className="bg-brand-purple text-white text-[11px] font-bold px-3 py-1 rounded-full">Selecionado</span>
             </div>
+
+            {/* Ciência obrigatória — inscrição sem camisa e sem plaquinha */}
+            {semKit && (
+              <label className="flex items-start gap-3 bg-red-50 border-2 border-red-400 rounded-xl px-4 py-3 text-[14px] text-red-800 cursor-pointer">
+                <input id="check-ciente-sem-kit" type="checkbox" checked={f.cienteSemKit}
+                  onChange={e => set('cienteSemKit', e.target.checked)}
+                  className="mt-0.5 accent-red-600 w-5 h-5 flex-shrink-0" />
+                <span>
+                  <strong>Estou ciente de que esta inscrição NÃO inclui camisa nem plaquinha personalizada.</strong>{' '}
+                  O prazo para recebê-las encerrou em 05/10.
+                </span>
+              </label>
+            )}
 
             <label className="flex items-start gap-3 text-[13px] text-brand-muted cursor-pointer">
               <input id="check-termo" type="checkbox" checked={f.termo}
