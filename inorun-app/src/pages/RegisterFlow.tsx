@@ -11,7 +11,8 @@ import { formataBRL } from '../lib/precoLoteAtual';
 import { tamanhosDisponiveis } from '../lib/camisetas';
 import { kitCompletoDisponivel } from '../lib/ultimaChamada';
 import AvisoUltimaChamada from '../components/ui/AvisoUltimaChamada';
-import { getEventoPublico, getLoteAtivo, validarCupom } from '../services/eventoService';
+import { getEventoPublico, getLoteAtivo, validarCupom, aplicarCupom } from '../services/eventoService';
+import type { CupomInfo } from '../services/eventoService';
 import { criarInscricaoPendente, buscarInscricaoPendente } from '../services/inscricaoService';
 import type { EventoData } from '../services/eventoService';
 import type { ResultadoInscricao, InscricaoPendente } from '../services/inscricaoService';
@@ -65,7 +66,7 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
   const [emAnalise, setEmAnalise]   = useState(false);
   const [cpfErro, setCpfErro]       = useState('');
   const [idadeErro, setIdadeErro] = useState('');
-  const [cupomInfo, setCupomInfo] = useState<{ valido: boolean; desconto: number; id?: string } | null>(null);
+  const [cupomInfo, setCupomInfo] = useState<CupomInfo | null>(null);
   const [validandoCupom, setValidandoCupom] = useState(false);
 
   const [f, setF] = useState<FormState>({
@@ -114,10 +115,11 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
   const race    = evento?.races.find(r => r.id === f.race_id);
   const loteAtual = (evento && f.race_id) ? getLoteAtivo(evento.lots, f.race_id) : null;
   const precoBase = loteAtual?.preco_centavos ?? 0;
-  const desconto  = cupomInfo?.valido ? cupomInfo.desconto : 0;
   // Opção B: valor líquido da inscrição separado da taxa de plataforma
   const TAXA_PLATAFORMA = 500;                                // R$5,00 fixo
-  const valorInscricao  = Math.round(precoBase * (1 - desconto)); // pós-cupom, sem taxa
+  const valorInscricao  = aplicarCupom(precoBase, cupomInfo); // pós-cupom, sem taxa
+  const descontoCentavos = precoBase - valorInscricao;
+  const cupomFixo        = !!cupomInfo?.valido && cupomInfo.descontoFixoCentavos > 0;
   const total           = valorInscricao + TAXA_PLATAFORMA;   // total cobrado do atleta
 
   // Última Chamada: após 05/10 corrida e caminhada não incluem camisa nem plaquinha.
@@ -701,7 +703,9 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
               </div>
               {cupomInfo?.valido && (
                 <div className="text-brand-purple text-[13px] mt-1.5 font-semibold">
-                  ✓ Cupom aplicado: {Math.round(cupomInfo.desconto * 100)}% de desconto
+                  ✓ Cupom aplicado: {cupomFixo
+                    ? `${formataBRL(cupomInfo.descontoFixoCentavos)} de desconto`
+                    : `${Math.round(cupomInfo.desconto * 100)}% de desconto`}
                 </div>
               )}
               {cupomInfo && !cupomInfo.valido && (
@@ -730,10 +734,12 @@ export default function RegisterFlow({ onBack, onDone }: Props) {
               {loteAtual && <div className="text-[12px] text-brand-muted mt-0.5">{loteAtual.nome}</div>}
 
               {/* Desconto de cupom */}
-              {desconto > 0 && (
+              {descontoCentavos > 0 && (
                 <div className="flex justify-between mt-2 text-[13px]">
-                  <span className="text-brand-muted">Desconto ({Math.round(desconto * 100)}%)</span>
-                  <span className="text-green-600 font-medium">−{formataBRL(precoBase * desconto)}</span>
+                  <span className="text-brand-muted">
+                    Desconto{cupomFixo ? ' (cupom)' : ` (${Math.round((cupomInfo?.desconto ?? 0) * 100)}%)`}
+                  </span>
+                  <span className="text-green-600 font-medium">−{formataBRL(descontoCentavos)}</span>
                 </div>
               )}
 

@@ -103,8 +103,15 @@ export function getLotesDaProva(lots: PricingLot[], raceId: string): PricingLot[
     .sort((a, b) => a.ordem - b.ordem);
 }
 
-// Valida cupom no Supabase e retorna o desconto em fração (0.10 = 10%)
-export async function validarCupom(codigo: string): Promise<{ valido: boolean; desconto: number; id?: string }> {
+export interface CupomInfo {
+  valido: boolean;
+  desconto: number;           // fração para cupom percentual (0.10 = 10%); 0 se fixo
+  descontoFixoCentavos: number; // valor em centavos para cupom fixo; 0 se percentual
+  id?: string;
+}
+
+// Valida cupom no Supabase. Percentual retorna fração; fixo retorna centavos.
+export async function validarCupom(codigo: string): Promise<CupomInfo> {
   const { data } = await supabase
     .from('coupon')
     .select('id, tipo, valor')
@@ -112,11 +119,21 @@ export async function validarCupom(codigo: string): Promise<{ valido: boolean; d
     .eq('ativo', true)
     .single();
 
-  if (!data) return { valido: false, desconto: 0 };
+  if (!data) return { valido: false, desconto: 0, descontoFixoCentavos: 0 };
 
-  const desconto = data.tipo === 'percentual'
-    ? Number(data.valor) / 100
-    : 0; // tipo 'fixo' tratado no servidor
+  const percentual = data.tipo === 'percentual';
+  return {
+    valido: true,
+    desconto: percentual ? Number(data.valor) / 100 : 0,
+    // coupon.valor do tipo fixo está em reais (20.00 = R$ 20,00)
+    descontoFixoCentavos: percentual ? 0 : Math.round(Number(data.valor) * 100),
+    id: data.id,
+  };
+}
 
-  return { valido: true, desconto, id: data.id };
+// Aplica o cupom ao preço do lote. O fixo nunca deixa a inscrição negativa.
+export function aplicarCupom(precoCentavos: number, cupom: CupomInfo | null): number {
+  if (!cupom?.valido) return precoCentavos;
+  if (cupom.descontoFixoCentavos > 0) return Math.max(0, precoCentavos - cupom.descontoFixoCentavos);
+  return Math.round(precoCentavos * (1 - cupom.desconto));
 }
