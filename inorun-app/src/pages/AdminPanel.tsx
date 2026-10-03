@@ -6,6 +6,7 @@ import AdminLogin from './AdminLogin';
 import AdminDashboard from './admin/AdminDashboard';
 import GestaoInscricoes from './admin/GestaoInscricoes';
 import GestaoGrupos from './admin/GestaoGrupos';
+import Camisetas from './admin/Camisetas';
 import GestaoLotesCupons from './admin/GestaoLotesCupons';
 import Cronograma from './admin/Cronograma';
 import Financeiro from './admin/Financeiro';
@@ -17,12 +18,13 @@ import type { InscritoRow, MetricasAdmin } from '../services/adminService';
 
 interface Props { onBack: () => void; totalInscritos: number; }
 
-type Secao = 'dashboard' | 'inscricoes' | 'grupos' | 'lotes' | 'pixel' | 'cronograma' | 'financeiro' | 'checkin' | 'resultados';
+type Secao = 'dashboard' | 'inscricoes' | 'grupos' | 'camisetas' | 'lotes' | 'pixel' | 'cronograma' | 'financeiro' | 'checkin' | 'resultados';
 
 const NAV: { id: Secao; label: string; icon: string }[] = [
   { id: 'dashboard',  label: 'Dashboard',     icon: '📊' },
   { id: 'inscricoes', label: 'Inscrições',     icon: '🏃' },
   { id: 'grupos',     label: 'Grupos',         icon: '👥' },
+  { id: 'camisetas',  label: 'Camisetas',      icon: '👕' },
   { id: 'lotes',      label: 'Lotes & Cupons', icon: '🎟️' },
   { id: 'pixel',      label: 'Meta Pixel & Ads', icon: '🎯' },
   { id: 'cronograma', label: 'Cronograma',     icon: '🕐' },
@@ -148,6 +150,9 @@ export default function AdminPanel({ onBack }: Props) {
             <GestaoInscricoes inscritos={inscritos} onRecarregar={carregar} loading={loading} />
           )}
           {secao === 'grupos' && <GestaoGrupos />}
+          {secao === 'camisetas' && (
+            <Camisetas inscritos={inscritos} onRecarregar={carregar} loading={loading} />
+          )}
           {secao === 'lotes' && <GestaoLotesCupons />}
           {secao === 'pixel' && <MetaPixelInfoCard />}
           {secao === 'cronograma' && <Cronograma />}
