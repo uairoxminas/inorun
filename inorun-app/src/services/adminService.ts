@@ -406,3 +406,65 @@ export async function fazerCheckin(bib: number): Promise<{
 
 // Re-export para uso externo
 export { formataBRL };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CAMISETAS — pedidos ao fornecedor e reserva técnica
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface PedidoCamisetaRow {
+  id: string;
+  fornecedor: string | null;
+  observacao: string | null;
+  itens: { modelo: 'unissex' | 'babylook'; tamanho: string; quantidade: number }[];
+  total: number;
+  created_at: string;
+}
+
+export async function getPedidosCamisetas(evento_id: string): Promise<PedidoCamisetaRow[]> {
+  const { data, error } = await supabase
+    .from('camiseta_pedido')
+    .select('id, fornecedor, observacao, itens, total, created_at')
+    .eq('evento_id', evento_id)
+    .order('created_at', { ascending: true });
+  if (error) { console.error('getPedidosCamisetas:', error.message); return []; }
+  return (data ?? []) as PedidoCamisetaRow[];
+}
+
+export async function registrarPedidoCamisetas(
+  evento_id: string, itens: PedidoCamisetaRow['itens'], fornecedor: string, observacao: string
+): Promise<{ ok: boolean; erro?: string }> {
+  const total = itens.reduce((acc, it) => acc + it.quantidade, 0);
+  const { error } = await supabase.from('camiseta_pedido').insert({
+    evento_id, itens, total,
+    fornecedor: fornecedor.trim() || null,
+    observacao: observacao.trim() || null,
+  });
+  return error ? { ok: false, erro: error.message } : { ok: true };
+}
+
+export async function excluirPedidoCamisetas(id: string): Promise<{ ok: boolean; erro?: string }> {
+  const { error } = await supabase.from('camiseta_pedido').delete().eq('id', id);
+  return error ? { ok: false, erro: error.message } : { ok: true };
+}
+
+/** Reserva técnica por célula. Chave: `${modelo}:${tamanho}`. */
+export async function getReservaCamisetas(evento_id: string): Promise<Record<string, number>> {
+  const { data, error } = await supabase
+    .from('camiseta_reserva')
+    .select('modelo, tamanho, quantidade')
+    .eq('evento_id', evento_id);
+  if (error) { console.error('getReservaCamisetas:', error.message); return {}; }
+  const reserva: Record<string, number> = {};
+  (data ?? []).forEach(r => { reserva[`${r.modelo}:${r.tamanho}`] = r.quantidade; });
+  return reserva;
+}
+
+export async function salvarReservaCamiseta(
+  evento_id: string, modelo: 'unissex' | 'babylook', tamanho: string, quantidade: number
+): Promise<{ ok: boolean; erro?: string }> {
+  const { error } = await supabase.from('camiseta_reserva').upsert(
+    { evento_id, modelo, tamanho, quantidade, updated_at: new Date().toISOString() },
+    { onConflict: 'evento_id,modelo,tamanho' }
+  );
+  return error ? { ok: false, erro: error.message } : { ok: true };
+}

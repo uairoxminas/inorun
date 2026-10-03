@@ -1,14 +1,19 @@
 // src/pages/admin/Camisetas.tsx — Controle das camisetas e relatórios para o fornecedor
 
-import { useMemo, useState } from 'react';
-import type { InscritoRow } from '../../services/adminService';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  getPedidosCamisetas, registrarPedidoCamisetas, excluirPedidoCamisetas,
+  getReservaCamisetas, salvarReservaCamiseta,
+} from '../../services/adminService';
+import type { InscritoRow, PedidoCamisetaRow } from '../../services/adminService';
 import {
   MODELOS, MODELO_LABEL, STATUS_LABEL, chaveReserva, comCamiseta, modeloDe, montarPedido,
+  somarPedidos, montarSituacao, montarComplemento, itensDe,
   textoPedido, csvPedido, csvNominal, htmlPedido, ordenarNominal,
 } from '../../lib/pedidoCamisetas';
 import type { ModeloKey, Reserva } from '../../lib/pedidoCamisetas';
 
-interface Props { inscritos: InscritoRow[]; onRecarregar: () => void; loading: boolean; }
+interface Props { eventoId: string; inscritos: InscritoRow[]; onRecarregar: () => void; loading: boolean; }
 
 const STATUS_OPCOES = ['confirmado', 'em_analise', 'pendente'] as const;
 const STATUS_COR: Record<string, string> = {
@@ -16,11 +21,9 @@ const STATUS_COR: Record<string, string> = {
   em_analise: 'bg-amber-100 text-amber-800',
   pendente:   'bg-orange-50 text-orange-700',
 };
-const RESERVA_KEY = 'inorun_camisetas_reserva';
 
-function lerReserva(): Reserva {
-  try { return JSON.parse(localStorage.getItem(RESERVA_KEY) ?? '{}') as Reserva; } catch { return {}; }
-}
+const dataHora = (iso: string) =>
+  new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' });
 
 function baixar(conteudo: string, nome: string) {
   const blob = new Blob(['﻿' + conteudo], { type: 'text/csv;charset=utf-8' });
@@ -31,17 +34,45 @@ function baixar(conteudo: string, nome: string) {
   URL.revokeObjectURL(url);
 }
 
-export default function Camisetas({ inscritos, onRecarregar, loading }: Props) {
+export default function Camisetas({ eventoId, inscritos, onRecarregar, loading }: Props) {
   const [statuses, setStatuses] = useState<Set<string>>(new Set(['confirmado']));
-  const [reserva, setReserva]   = useState<Reserva>(lerReserva);
+  const [reserva, setReserva]   = useState<Reserva>({});
+  const [pedidos, setPedidos]   = useState<PedidoCamisetaRow[]>([]);
+  const [carregado, setCarregado] = useState(false);
+  const [fornecedor, setFornecedor] = useState('');
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro]         = useState('');
   const [obs, setObs]           = useState('');
   const [copiado, setCopiado]   = useState(false);
   const [fModelo, setFModelo]   = useState<'todos' | ModeloKey>('todos');
   const [fTamanho, setFTamanho] = useState('todos');
   const [busca, setBusca]       = useState('');
 
+  useEffect(() => {
+    let ativo = true;
+    Promise.all([getPedidosCamisetas(eventoId), getReservaCamisetas(eventoId)]).then(([p, r]) => {
+      if (!ativo) return;
+      setPedidos(p); setReserva(r); setCarregado(true);
+    });
+    return () => { ativo = false; };
+  }, [eventoId]);
+
   const base   = useMemo(() => comCamiseta(inscritos), [inscritos]);
+  // pedido = tudo que é necessário hoje (inscritos + reserva)
   const pedido = useMemo(() => montarPedido(inscritos, statuses, reserva), [inscritos, statuses, reserva]);
+
+  // Comparação com o que já foi enviado ao fornecedor
+  const jaPedido    = useMemo(() => somarPedidos(pedidos), [pedidos]);
+  const situacao    = useMemo(() => montarSituacao(pedido, jaPedido), [pedido, jaPedido]);
+  const complemento = useMemo(() => montarComplemento(situacao), [situacao]);
+  const temPedidos  = pedidos.length > 0;
+  const totalJaPedido = pedidos.reduce((acc, p) => acc + p.total, 0);
+  const sobra = situacao.reduce((acc, s) =>
+    acc + MODELOS.reduce((a, m) => a + Math.max(0, -s.porModelo[m].diferenca), 0), 0);
+
+  // O relatório sai com o pedido cheio no 1º envio e só com o complemento nos seguintes
+  const relatorio = temPedidos ? complemento : pedido;
+  const titulo    = temPedidos ? `Pedido complementar de camisetas nº ${pedidos.length + 1}` : 'Pedido de camisetas';
 
   const porStatus = (s: string) => base.filter(i => i.status === s).length;
   const semCamiseta = inscritos.filter(i => i.status !== 'cancelado' && !i.camiseta).length;
@@ -76,15 +107,35 @@ export default function Camisetas({ inscritos, onRecarregar, loading }: Props) {
 
   const setReservaCelula = (modelo: ModeloKey, tamanho: string, valor: string) => {
     const n = Math.max(0, Math.floor(Number(valor) || 0));
-    setReserva(prev => {
-      const novo = { ...prev, [chaveReserva(modelo, tamanho)]: n };
-      try { localStorage.setItem(RESERVA_KEY, JSON.stringify(novo)); } catch { /* sem storage: vale só nesta sessão */ }
-      return novo;
-    });
+    setReserva(prev => ({ ...prev, [chaveReserva(modelo, tamanho)]: n }));
+  };
+
+  // Grava a reserva no banco ao sair do campo
+  const persistirReserva = async (modelo: ModeloKey, tamanho: string) => {
+    const res = await salvarReservaCamiseta(eventoId, modelo, tamanho, reserva[chaveReserva(modelo, tamanho)] ?? 0);
+    setErro(res.ok ? '' : `Não foi possível salvar a reserva: ${res.erro}`);
+  };
+
+  const handleRegistrar = async () => {
+    if (relatorio.total === 0) return;
+    const msg = `Registrar ${temPedidos ? 'pedido complementar' : 'pedido'} de ${relatorio.total} peças como enviado ao fornecedor?`;
+    if (!confirm(msg)) return;
+    setSalvando(true);
+    const res = await registrarPedidoCamisetas(eventoId, itensDe(relatorio), fornecedor, obs);
+    if (res.ok) { setErro(''); setObs(''); setPedidos(await getPedidosCamisetas(eventoId)); }
+    else setErro(`Não foi possível registrar o pedido: ${res.erro}`);
+    setSalvando(false);
+  };
+
+  const handleExcluirPedido = async (p: PedidoCamisetaRow, numero: number) => {
+    if (!confirm(`Excluir o registro do pedido nº ${numero} (${p.total} peças)? As peças voltam a aparecer como "a pedir".`)) return;
+    const res = await excluirPedidoCamisetas(p.id);
+    if (res.ok) { setErro(''); setPedidos(await getPedidosCamisetas(eventoId)); }
+    else setErro(`Não foi possível excluir o pedido: ${res.erro}`);
   };
 
   const handleCopiar = async () => {
-    const texto = textoPedido(pedido) + (obs.trim() ? `\n\nObs.: ${obs.trim()}` : '');
+    const texto = textoPedido(relatorio, titulo) +(obs.trim() ? `\n\nObs.: ${obs.trim()}` : '');
     await navigator.clipboard.writeText(texto);
     setCopiado(true);
     setTimeout(() => setCopiado(false), 2500);
@@ -93,7 +144,7 @@ export default function Camisetas({ inscritos, onRecarregar, loading }: Props) {
   const handleImprimir = () => {
     const w = window.open('', '_blank');
     if (!w) { alert('O navegador bloqueou a janela de impressão. Libere pop-ups para este site.'); return; }
-    w.document.write(htmlPedido(pedido, obs));
+    w.document.write(htmlPedido(relatorio, obs, titulo));
     w.document.close();
     w.focus();
     w.print();
@@ -114,21 +165,31 @@ export default function Camisetas({ inscritos, onRecarregar, loading }: Props) {
         </button>
       </div>
 
+      {erro && (
+        <div className="rounded-2xl border-2 border-red-300 bg-red-50 p-4 text-[13px] text-red-800">{erro}</div>
+      )}
+
       {/* Resumo */}
       <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
-        <div className="card p-5 border-brand-purple-mid">
-          <div className="text-[11px] text-brand-muted uppercase tracking-[0.12em]">Total do pedido</div>
-          <div className="font-display font-extrabold text-[28px] text-brand-purple mt-1">{pedido.total}</div>
-        </div>
-        {MODELOS.map(m => (
-          <div key={m} className="card p-5">
-            <div className="text-[11px] text-brand-muted uppercase tracking-[0.12em]">{MODELO_LABEL[m]}</div>
-            <div className="font-display font-extrabold text-[28px] text-brand-ink mt-1">{totalModelo(m)}</div>
-            {pedido.reserva[m] > 0 && (
-              <div className="text-[12px] text-brand-muted">{pedido.inscritos[m]} inscritos + {pedido.reserva[m]} reserva</div>
-            )}
+        <div className="card p-5">
+          <div className="text-[11px] text-brand-muted uppercase tracking-[0.12em]">Necessário</div>
+          <div className="font-display font-extrabold text-[28px] text-brand-ink mt-1">{pedido.total}</div>
+          <div className="text-[12px] text-brand-muted">
+            {MODELOS.map(m => `${totalModelo(m)} ${MODELO_LABEL[m]}`).join(' · ')}
           </div>
-        ))}
+        </div>
+        <div className="card p-5">
+          <div className="text-[11px] text-brand-muted uppercase tracking-[0.12em]">Já pedido</div>
+          <div className="font-display font-extrabold text-[28px] text-green-600 mt-1">{totalJaPedido}</div>
+          <div className="text-[12px] text-brand-muted">
+            {temPedidos ? `${pedidos.length} ${pedidos.length === 1 ? 'envio registrado' : 'envios registrados'}` : 'Nenhum envio registrado'}
+          </div>
+        </div>
+        <div className="card p-5 border-brand-purple-mid">
+          <div className="text-[11px] text-brand-muted uppercase tracking-[0.12em]">A pedir agora</div>
+          <div className="font-display font-extrabold text-[28px] text-brand-purple mt-1">{relatorio.total}</div>
+          {sobra > 0 && <div className="text-[12px] text-amber-700">{sobra} já pedidas a mais que o necessário</div>}
+        </div>
         <div className="card p-5">
           <div className="text-[11px] text-brand-muted uppercase tracking-[0.12em]">Sem camiseta</div>
           <div className="font-display font-extrabold text-[28px] text-brand-muted mt-1">{semCamiseta}</div>
@@ -170,9 +231,9 @@ export default function Camisetas({ inscritos, onRecarregar, loading }: Props) {
       {/* Quadro do pedido */}
       <div className="card overflow-hidden">
         <div className="p-5 pb-3">
-          <h3 className="font-semibold text-brand-ink">Quadro do pedido — modelo × tamanho</h3>
+          <h3 className="font-semibold text-brand-ink">Necessário — modelo × tamanho</h3>
           <div className="text-[12px] text-brand-muted">
-            Reserva = peças extras além dos inscritos (trocas, staff, cortesias). Fica salva neste navegador.
+            Reserva = peças extras além dos inscritos (trocas, staff, cortesias). É salva no sistema ao sair do campo.
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -210,7 +271,8 @@ export default function Camisetas({ inscritos, onRecarregar, loading }: Props) {
                           aria-label={`Reserva ${MODELO_LABEL[m]} ${l.tamanho}`}
                           className="w-16 mx-auto border border-brand-lilac-mid rounded-lg px-2 py-1 text-center text-[13px] focus:outline-none focus:ring-2 focus:ring-brand-purple"
                           value={l.reserva[m] || ''} placeholder="0"
-                          onChange={e => setReservaCelula(m, l.tamanho, e.target.value)} />
+                          onChange={e => setReservaCelula(m, l.tamanho, e.target.value)}
+                          onBlur={() => persistirReserva(m, l.tamanho)} />
                       </div>
                     </td>
                   ))}
@@ -237,33 +299,138 @@ export default function Camisetas({ inscritos, onRecarregar, loading }: Props) {
         </div>
       </div>
 
+      {/* Situação: necessário × já pedido */}
+      {temPedidos && (
+        <div className="card overflow-hidden">
+          <div className="p-5 pb-3">
+            <h3 className="font-semibold text-brand-ink">Situação do pedido — necessário × já pedido</h3>
+            <div className="text-[12px] text-brand-muted">
+              "Falta" é o que entra no próximo pedido complementar. "Sobra" são peças já pedidas além do necessário (ex.: cancelamentos).
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[14px]">
+              <thead>
+                <tr className="bg-brand-lilac text-brand-purple-dark text-[12px] uppercase tracking-wider">
+                  <th className="px-4 py-2.5 text-left">Tamanho</th>
+                  {MODELOS.map(m => <th key={m} className="px-3 py-2.5 text-center" colSpan={3}>{MODELO_LABEL[m]}</th>)}
+                </tr>
+                <tr className="text-[11px] text-brand-muted border-b border-brand-lilac-mid">
+                  <th />
+                  {MODELOS.map(m => (
+                    <th key={m} colSpan={3} className="px-3 py-1 font-normal">
+                      <div className="grid grid-cols-3"><span>necessário</span><span>já pedido</span><span>diferença</span></div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {situacao.map(s => (
+                  <tr key={s.tamanho} className="border-b border-brand-lilac-mid last:border-0">
+                    <td className="px-4 py-2 font-display font-bold text-[16px]">{s.tamanho}</td>
+                    {MODELOS.map(m => {
+                      const c = s.porModelo[m];
+                      return (
+                        <td key={m} colSpan={3} className="px-3 py-2">
+                          <div className="grid grid-cols-3 text-center items-center">
+                            <span>{c.necessario || '–'}</span>
+                            <span className="text-green-700">{c.pedido || '–'}</span>
+                            <span className={`font-bold ${c.diferenca > 0 ? 'text-brand-purple' : c.diferenca < 0 ? 'text-amber-700' : 'text-brand-muted'}`}>
+                              {c.diferenca > 0 ? `falta ${c.diferenca}` : c.diferenca < 0 ? `sobra ${-c.diferenca}` : 'ok'}
+                            </span>
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Relatórios */}
       <div className="card p-5 space-y-3">
-        <h3 className="font-semibold text-brand-ink">Relatório para o fornecedor</h3>
+        <h3 className="font-semibold text-brand-ink">
+          {temPedidos ? `Relatório para o fornecedor — pedido complementar nº ${pedidos.length + 1}` : 'Relatório para o fornecedor'}
+        </h3>
+        {temPedidos && relatorio.total === 0 && (
+          <div className="text-[13px] text-green-700 font-semibold">✓ Tudo que é necessário já foi pedido. Não há complemento a enviar.</div>
+        )}
+        <div>
+          <label className="label" htmlFor="input-camisetas-fornecedor">Fornecedor (opcional — fica no histórico)</label>
+          <input id="input-camisetas-fornecedor" className="input" value={fornecedor}
+            onChange={e => setFornecedor(e.target.value)} placeholder="Nome do fornecedor" />
+        </div>
         <div>
           <label className="label" htmlFor="input-camisetas-obs">Observações (opcional — saem no texto e na impressão)</label>
           <textarea id="input-camisetas-obs" className="input" rows={2} value={obs}
             onChange={e => setObs(e.target.value)} placeholder="Ex: tecido dry-fit, entrega até 08/10" />
         </div>
         <div className="flex flex-wrap gap-2">
-          <button id="btn-camisetas-copiar" onClick={handleCopiar} disabled={pedido.total === 0}
+          <button id="btn-camisetas-copiar" onClick={handleCopiar} disabled={relatorio.total === 0}
             className="btn-primary text-sm px-4 py-2.5">
             {copiado ? '✓ Copiado' : '📋 Copiar texto (WhatsApp)'}
           </button>
-          <button id="btn-camisetas-imprimir" onClick={handleImprimir} disabled={pedido.total === 0}
+          <button id="btn-camisetas-imprimir" onClick={handleImprimir} disabled={relatorio.total === 0}
             className="btn-outline text-sm px-4 py-2.5">
             🖨️ Imprimir / PDF
           </button>
-          <button id="btn-camisetas-csv" disabled={pedido.total === 0}
-            onClick={() => baixar(csvPedido(pedido), `inorun-pedido-camisetas-${dataArq}.csv`)}
+          <button id="btn-camisetas-csv" disabled={relatorio.total === 0}
+            onClick={() => baixar(csvPedido(relatorio),`inorun-pedido-camisetas-${dataArq}.csv`)}
             className="btn-outline text-sm px-4 py-2.5">
             ⬇ Planilha do pedido
           </button>
         </div>
         <pre className="bg-brand-bg border border-brand-lilac-mid rounded-xl p-4 text-[13px] whitespace-pre-wrap font-sans">
-          {textoPedido(pedido)}{obs.trim() ? `\n\nObs.: ${obs.trim()}` : ''}
+          {textoPedido(relatorio, titulo)}{obs.trim() ? `\n\nObs.: ${obs.trim()}` : ''}
         </pre>
+        <div className="pt-3 border-t border-brand-lilac-mid flex items-center gap-3 flex-wrap">
+          <button id="btn-camisetas-registrar" onClick={handleRegistrar}
+            disabled={relatorio.total === 0 || salvando || !carregado}
+            className="btn-accent text-sm px-4 py-2.5">
+            {salvando ? 'Registrando...' : `✓ Registrar como enviado (${relatorio.total} peças)`}
+          </button>
+          <span className="text-[12px] text-brand-muted">
+            Clique depois de mandar o pedido ao fornecedor. A partir daí a tela mostra só o que faltar.
+          </span>
+        </div>
       </div>
+
+      {/* Histórico de envios */}
+      {temPedidos && (
+        <div className="card overflow-hidden">
+          <div className="p-5 pb-3">
+            <h3 className="font-semibold text-brand-ink">Pedidos enviados ao fornecedor ({pedidos.length})</h3>
+          </div>
+          <div className="divide-y divide-brand-lilac-mid">
+            {pedidos.map((p, idx) => (
+              <div key={p.id} className="px-5 py-3 flex items-start justify-between gap-4">
+                <div className="text-[13px]">
+                  <div className="font-semibold text-brand-ink">
+                    Pedido nº {idx + 1} · {p.total} peças · {dataHora(p.created_at)}{p.fornecedor ? ` · ${p.fornecedor}` : ''}
+                  </div>
+                  {MODELOS.map(m => {
+                    const itens = p.itens.filter(it => it.modelo === m);
+                    if (itens.length === 0) return null;
+                    return (
+                      <div key={m} className="text-brand-muted">
+                        {MODELO_LABEL[m]}: {itens.map(it => `${it.tamanho} ${it.quantidade}`).join(' · ')}
+                      </div>
+                    );
+                  })}
+                  {p.observacao && <div className="text-brand-muted italic">Obs.: {p.observacao}</div>}
+                </div>
+                <button id={`btn-camisetas-excluir-${p.id}`} onClick={() => handleExcluirPedido(p, idx + 1)}
+                  className="text-[12px] text-brand-muted hover:text-red-500 transition-colors whitespace-nowrap">
+                  Excluir registro
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Lista nominal */}
       <div className="card overflow-hidden">

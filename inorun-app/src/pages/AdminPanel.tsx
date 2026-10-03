@@ -150,8 +150,8 @@ export default function AdminPanel({ onBack }: Props) {
             <GestaoInscricoes inscritos={inscritos} onRecarregar={carregar} loading={loading} />
           )}
           {secao === 'grupos' && <GestaoGrupos />}
-          {secao === 'camisetas' && (
-            <Camisetas inscritos={inscritos} onRecarregar={carregar} loading={loading} />
+          {secao === 'camisetas' && eventoId && (
+            <Camisetas eventoId={eventoId} inscritos={inscritos} onRecarregar={carregar} loading={loading} />
           )}
           {secao === 'lotes' && <GestaoLotesCupons />}
           {secao === 'pixel' && <MetaPixelInfoCard />}
