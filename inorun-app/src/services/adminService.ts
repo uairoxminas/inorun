@@ -38,6 +38,8 @@ export interface InscritoRow {
   nascimento?: string;          // YYYY-MM-DD
   contato_emergencia?: string | null;
   race_id?: string;
+  cupom?: string | null;        // código do cupom usado
+  grupo?: string | null;        // nome do grupo (inscrição em grupo)
 }
 
 export interface MetricasAdmin {

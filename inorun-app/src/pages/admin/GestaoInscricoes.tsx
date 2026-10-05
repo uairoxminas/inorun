@@ -115,6 +115,7 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
   const [form, setForm]           = useState<FormEdicao | null>(null);
   const [provas, setProvas]       = useState<ProvaOpcao[]>([]);
   const [eErro, setEErro]         = useState('');
+  const [exportandoExcel, setExportandoExcel] = useState(false);
   const setCampo = (campo: keyof FormEdicao, valor: string) =>
     setForm(prev => (prev ? { ...prev, [campo]: valor } : prev));
 
@@ -339,16 +340,39 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
     a.click(); URL.revokeObjectURL(url);
   };
 
+  const handleExportExcel = async () => {
+    setExportandoExcel(true);
+    try {
+      const { gerarExcelInscritos } = await import('../../lib/excelInscritos');
+      const blob = await gerarExcelInscritos(filtrados);
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url; a.download = `inorun-inscritos-${new Date().toISOString().slice(0,10)}.xlsx`;
+      a.click(); URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('Não foi possível gerar o Excel: ' + (err instanceof Error ? err.message : 'erro inesperado'));
+    } finally {
+      setExportandoExcel(false);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="font-display font-extrabold italic uppercase text-[32px] text-brand-ink leading-none">
           Inscrições
         </h2>
-        <button id="btn-exportar-csv-inscricoes" onClick={handleExport}
-          className="btn-primary text-[13px] py-2 px-4">
-          Exportar CSV ({filtrados.length})
-        </button>
+        <div className="flex gap-2 flex-wrap">
+          <button id="btn-exportar-excel-inscricoes" onClick={handleExportExcel}
+            disabled={exportandoExcel || filtrados.length === 0}
+            className="btn-primary text-[13px] py-2 px-4 disabled:opacity-60">
+            {exportandoExcel ? 'Gerando...' : `Exportar Excel (${filtrados.length})`}
+          </button>
+          <button id="btn-exportar-csv-inscricoes" onClick={handleExport}
+            className="btn-outline text-[13px] py-2 px-4">
+            CSV
+          </button>
+        </div>
       </div>
 
       {/* Seção Informativa & Simulador de Testes do WhatsApp e Comprovantes */}
