@@ -274,7 +274,8 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
+          // Sem sessão do Supabase Auth, a função exige a chave anon como Bearer (senão responde 401 e o e-mail não sai)
+          'Authorization': `Bearer ${session?.access_token ?? import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
         },
         body: JSON.stringify({ registration_id: atleta.registration_id, acao }),

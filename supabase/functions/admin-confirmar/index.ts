@@ -42,7 +42,7 @@ serve(async (req) => {
     // 2. Busca dados do atleta para o email
     const { data: reg, error: regErr } = await supabase
       .from("vw_inscritos")
-      .select("nome, email, prova, categoria, preco_centavos")
+      .select("nome, email, prova, categoria, preco_centavos, valor_pago, taxa_paga")
       .eq("registration_id", registration_id)
       .single();
 
@@ -51,7 +51,9 @@ serve(async (req) => {
       return json({ ok: true, bib_number, email_sent: false }, 200);
     }
 
-    const valor = (reg.preco_centavos / 100).toLocaleString("pt-BR", {
+    // Valor realmente cobrado: inscrição (já com cupom) + taxa. Sem pagamento registrado, usa o preço do lote.
+    const totalCentavos = (reg.valor_pago ?? reg.preco_centavos) + (reg.taxa_paga ?? 0);
+    const valor = (totalCentavos / 100).toLocaleString("pt-BR", {
       style: "currency", currency: "BRL",
     });
 

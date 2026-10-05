@@ -70,6 +70,34 @@ async function upsertAtleta(dados: DadosAtleta): Promise<string> {
   return data.athlete_id as string;
 }
 
+// O CPF já tem inscrição nesta prova (UNIQUE race_id + athlete_id)
+class CpfJaInscritoError extends Error {
+  constructor() { super('Este CPF ja esta inscrito nesta prova.'); }
+}
+
+// Quem refaz a inscrição (esqueceu o cupom, errou a camiseta, saiu da tela do Pix) reaproveita a
+// inscrição pendente/cancelada com os dados novos. Confirmadas e em análise seguem bloqueadas no banco.
+async function retomarInscricao(
+  athlete_id: string,
+  dados: DadosAtleta,
+  inscricao: DadosInscricao
+): Promise<{ registration_id: string; gateway_ref: string }> {
+  const { data, error } = await supabase.rpc('retomar_inscricao_pendente', {
+    p_athlete_id:      athlete_id,
+    p_race_id:         inscricao.race_id,
+    p_lot_id:          inscricao.lot_id,
+    p_categoria:       calcCategoria(new Date(dados.nascimento), dados.sexo ?? 'M', inscricao.modalidade),
+    p_camiseta:        inscricao.camiseta ?? '',
+    p_camiseta_modelo: inscricao.camiseta_modelo ?? '',
+    p_cupom_id:        inscricao.cupom_id || null,
+    p_valor_centavos:  inscricao.valor_centavos,
+    p_taxa_centavos:   inscricao.taxa_plataforma_centavos,
+  });
+  if (error) throw new Error(`Erro ao retomar inscricao: ${error.message}`);
+  if (!data?.ok) throw new Error(data?.erro ?? 'Este CPF ja esta inscrito nesta prova.');
+  return { registration_id: data.registration_id as string, gateway_ref: data.gateway_ref as string };
+}
+
 async function criarRegistration(
   athlete_id: string,
   dados: DadosAtleta,
@@ -97,7 +125,7 @@ async function criarRegistration(
     .select('id')
     .single();
   if (error) {
-    if (error.code === '23505') throw new Error('Este CPF ja esta inscrito nesta prova.');
+    if (error.code === '23505') throw new CpfJaInscritoError();
     throw new Error(`Erro ao criar inscricao: ${error.message}`);
   }
   return data.id;
@@ -129,8 +157,15 @@ export async function criarInscricaoPendente(
   provaDados: { label: string }
 ): Promise<InscricaoPendente> {
   const athlete_id      = await upsertAtleta(atletaDados);
-  const registration_id = await criarRegistration(athlete_id, atletaDados, inscricaoDados);
-  const gateway_ref     = await criarPagamento(registration_id, inscricaoDados);
+  let registration_id: string;
+  let gateway_ref: string;
+  try {
+    registration_id = await criarRegistration(athlete_id, atletaDados, inscricaoDados);
+    gateway_ref     = await criarPagamento(registration_id, inscricaoDados);
+  } catch (err) {
+    if (!(err instanceof CpfJaInscritoError)) throw err;
+    ({ registration_id, gateway_ref } = await retomarInscricao(athlete_id, atletaDados, inscricaoDados));
+  }
   const categoria = calcCategoria(
     new Date(atletaDados.nascimento),
     atletaDados.sexo ?? 'M',
