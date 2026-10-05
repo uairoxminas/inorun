@@ -37,14 +37,20 @@ function WhatsAppFAB() {
         bottom: '20px',
         right: '20px',
         zIndex: 999999,
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px',
+        // A área clicável é só o círculo de 56px. O balão fica fora do fluxo e não recebe toque:
+        // antes ele alargava o link para a esquerda e o toque no "Continuar" abria o WhatsApp.
+        display: 'block',
+        width: '56px',
+        height: '56px',
         textDecoration: 'none',
       }}
     >
       {/* Tooltip */}
       <span style={{
+        position: 'absolute',
+        right: '66px',
+        top: '50%',
+        marginTop: '-18px',
         background: '#fff',
         color: '#1a1a2e',
         fontSize: '13px',
@@ -57,7 +63,7 @@ function WhatsAppFAB() {
         opacity: hovered ? 1 : 0,
         transform: hovered ? 'translateX(0)' : 'translateX(8px)',
         transition: 'opacity 0.2s, transform 0.2s',
-        pointerEvents: hovered ? 'auto' : 'none',
+        pointerEvents: 'none',
       }}>
         💬 Suporte INO RUN
       </span>
@@ -180,6 +186,17 @@ function AppInner() {
           />
         )}
 
+        {/* Suporte nas telas de inscrição: link no fluxo da página, nunca sobre os botões do formulário */}
+        {(view === 'register' || view === 'grupo') && (
+          <div className="px-5 pb-6 text-center text-[13px] text-brand-muted">
+            Precisa de ajuda com a inscrição?{' '}
+            <a id="link-whatsapp-suporte" href={WA_LINK} target="_blank" rel="noopener noreferrer"
+              className="text-brand-purple font-semibold hover:underline">
+              Fale com o suporte no WhatsApp
+            </a>
+          </div>
+        )}
+
         {/* Crédito global — Always Profit (todas as telas) */}
         <div className="bg-white border-t border-brand-lilac-mid py-4 px-5 text-center text-[12px] text-brand-muted">
           Feito com amor <span aria-hidden>❤️</span> por{' '}
@@ -190,8 +207,8 @@ function AppInner() {
         </div>
       </div>
 
-      {/* WhatsApp FAB via portal — garante visibilidade em qualquer contexto */}
-      <WhatsAppFAB />
+      {/* WhatsApp FAB via portal — só no site público; nas inscrições ele cobria o botão "Continuar" */}
+      {view === 'site' && <WhatsAppFAB />}
     </>
   );
 }
@@ -201,7 +218,6 @@ function AdminRoute() {
   return (
     <div className="min-h-screen bg-brand-bg">
       <AdminPanel totalInscritos={0} onBack={() => { window.location.href = '/'; }} />
-      <WhatsAppFAB />
     </div>
   );
 }
