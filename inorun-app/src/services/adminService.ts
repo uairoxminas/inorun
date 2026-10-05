@@ -35,6 +35,9 @@ export interface InscritoRow {
   gemini_motivo?: string | null;
   gemini_resultado?: string | null;
   telefone?: string; // Telefone do atleta cadastrado
+  nascimento?: string;          // YYYY-MM-DD
+  contato_emergencia?: string | null;
+  race_id?: string;
 }
 
 export interface MetricasAdmin {
@@ -215,6 +218,20 @@ export async function editarInscricao(
     p_camiseta: campos.camiseta ?? null,
     p_status:   campos.status   ?? null,
     p_race_id:  campos.race_id  ?? null,
+  });
+  if (error) return { ok: false, erro: error.message };
+  return data as { ok: boolean; erro?: string };
+}
+
+// Edição completa: envia só as chaves alteradas. Chaves aceitas: nome, cpf, nascimento, sexo,
+// email, telefone, contato_emergencia, race_id, categoria, camiseta, camiseta_modelo, status, bib_number.
+export async function editarInscricaoCompleta(
+  registration_id: string,
+  dados: Record<string, string | null>
+): Promise<{ ok: boolean; erro?: string }> {
+  const { data, error } = await supabase.rpc('admin_editar_inscricao_completa', {
+    p_registration_id: registration_id,
+    p_dados: dados,
   });
   if (error) return { ok: false, erro: error.message };
   return data as { ok: boolean; erro?: string };

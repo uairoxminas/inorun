@@ -1,13 +1,36 @@
 // src/pages/admin/GestaoInscricoes.tsx — Gestão de inscrições com drawer de edição
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { formataBRL } from '../../lib/precoLoteAtual';
-import { cancelarInscricao, excluirInscricao, editarInscricao, gerarCSV } from '../../services/adminService';
+import { cancelarInscricao, excluirInscricao, editarInscricaoCompleta, gerarCSV } from '../../services/adminService';
 import type { InscritoRow } from '../../services/adminService';
 import { supabase } from '../../lib/supabase';
+import { calcCategoria } from '../../lib/calcCategoria';
+import type { Modalidade } from '../../lib/calcCategoria';
+import { validaCPF, formataCPF } from '../../lib/validaCPF';
 
 const CAMISETAS = ['PP', 'P', 'M', 'G', 'GG', 'XG', 'XGG', '4', '6', '8', '10', '12', '14'];
 const STATUS_OPTIONS = ['pendente', 'confirmado', 'cancelado', 'em_analise'];
+
+interface ProvaOpcao { id: string; label: string; tipo: string | null; distancia_km: number; }
+
+// Campos editáveis da inscrição (tudo como texto, do jeito que fica nos inputs)
+interface FormEdicao {
+  nome: string; cpf: string; nascimento: string; sexo: string; email: string;
+  telefone: string; emergencia: string;
+  race_id: string; camiseta: string; modelo: string; status: string; bib: string;
+}
+
+const soDigitos = (s: string) => s.replace(/\D/g, '');
+
+function formDe(r: InscritoRow): FormEdicao {
+  return {
+    nome: r.nome ?? '', cpf: soDigitos(r.cpf ?? ''), nascimento: r.nascimento ?? '', sexo: r.sexo ?? '',
+    email: r.email ?? '', telefone: r.telefone ?? '', emergencia: r.contato_emergencia ?? '',
+    race_id: r.race_id ?? '', camiseta: r.camiseta ?? '', modelo: r.camiseta_modelo ?? 'unissex',
+    status: r.status, bib: r.bib_number != null ? String(r.bib_number) : '',
+  };
+}
 
 interface Props { inscritos: InscritoRow[]; onRecarregar: () => void; loading: boolean; }
 
@@ -89,12 +112,16 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
   const POR_PAG = 20;
 
   // Estado do form de edição
-  const [eNome, setENome]         = useState('');
-  const [eEmail, setEEmail]       = useState('');
-  const [eTelefone, setETelefone] = useState('');
-  const [eCamiseta, setECamiseta] = useState('');
-  const [eStatus, setEStatus]     = useState('');
+  const [form, setForm]           = useState<FormEdicao | null>(null);
+  const [provas, setProvas]       = useState<ProvaOpcao[]>([]);
   const [eErro, setEErro]         = useState('');
+  const setCampo = (campo: keyof FormEdicao, valor: string) =>
+    setForm(prev => (prev ? { ...prev, [campo]: valor } : prev));
+
+  useEffect(() => {
+    supabase.from('race').select('id, label, tipo, distancia_km').order('distancia_km')
+      .then(({ data }) => setProvas((data ?? []) as ProvaOpcao[]));
+  }, []);
 
   const [filtroModalidade, setFiltroModalidade] = useState('todas');
 
@@ -142,30 +169,71 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
 
   const iniciarEdicao = () => {
     if (!atleta) return;
-    setENome(atleta.nome);
-    setEEmail(atleta.email);
-    setETelefone(atleta.telefone ?? '');
-    setECamiseta(atleta.camiseta);
-    setEStatus(atleta.status);
+    setForm(formDe(atleta));
     setEErro('');
     setModoEdicao(true);
   };
 
+  // Categoria que a inscrição terá com os dados do formulário (mesma regra da inscrição pública)
+  const categoriaDoForm = (f: FormEdicao): string | null => {
+    const prova = provas.find(p => p.id === f.race_id);
+    if (!prova || !f.nascimento) return null;
+    const tipo = (prova.tipo as Modalidade) || 'corrida';
+    if (tipo === 'corrida' && !f.sexo) return null;
+    // T12:00 evita a data "voltar um dia" no fuso do Brasil
+    return calcCategoria(new Date(`${f.nascimento}T12:00:00`), (f.sexo || 'M') as 'M' | 'F', tipo);
+  };
+
   const handleSalvar = async () => {
-    if (!atleta) return;
+    if (!atleta || !form) return;
+    const orig = formDe(atleta);
+    const f: FormEdicao = { ...form, nome: form.nome.trim(), cpf: soDigitos(form.cpf), email: form.email.trim().toLowerCase(),
+      telefone: form.telefone.trim(), emergencia: form.emergencia.trim(), bib: form.bib.trim() };
+
+    if (!f.nome || !f.email || !f.nascimento) { setEErro('Nome, e-mail e data de nascimento são obrigatórios.'); return; }
+    if (f.cpf !== orig.cpf && !validaCPF(f.cpf)) { setEErro('CPF inválido.'); return; }
+    if (f.bib && !/^\d+$/.test(f.bib)) { setEErro('Número de peito deve ter só algarismos.'); return; }
+
+    // Envia só o que mudou
+    const dados: Record<string, string | null> = {};
+    if (f.nome !== orig.nome)             dados.nome = f.nome;
+    if (f.cpf !== orig.cpf)               dados.cpf = f.cpf;
+    if (f.nascimento !== orig.nascimento) dados.nascimento = f.nascimento;
+    if (f.sexo !== orig.sexo)             dados.sexo = f.sexo || null;
+    if (f.email !== orig.email.trim().toLowerCase()) dados.email = f.email;
+    if (f.telefone !== orig.telefone.trim())         dados.telefone = f.telefone || null;
+    if (f.emergencia !== orig.emergencia.trim())     dados.contato_emergencia = f.emergencia || null;
+    if (f.race_id && f.race_id !== orig.race_id)     dados.race_id = f.race_id;
+    if (f.camiseta !== orig.camiseta)     dados.camiseta = f.camiseta || null;
+    if (f.camiseta && (f.modelo !== orig.modelo || !atleta.camiseta_modelo)) dados.camiseta_modelo = f.modelo;
+    if (!f.camiseta && atleta.camiseta_modelo) dados.camiseta_modelo = null;
+    if (f.status !== orig.status)         dados.status = f.status;
+    if (f.bib !== orig.bib)               dados.bib_number = f.bib || null;
+
+    // Sexo, nascimento ou prova mudaram → categoria é recalculada
+    let categoria = atleta.categoria;
+    if ('sexo' in dados || 'nascimento' in dados || 'race_id' in dados) {
+      const nova = categoriaDoForm(f);
+      if (!nova) { setEErro('Informe o sexo para calcular a categoria da corrida.'); return; }
+      if (nova !== atleta.categoria) { dados.categoria = nova; categoria = nova; }
+    }
+
+    if (Object.keys(dados).length === 0) { setModoEdicao(false); return; }
+
     setSalvando(true);
     setEErro('');
-    const res = await editarInscricao(atleta.registration_id, {
-      nome:     eNome     !== atleta.nome     ? eNome     : undefined,
-      email:    eEmail    !== atleta.email    ? eEmail    : undefined,
-      telefone: eTelefone || undefined,
-      camiseta: eCamiseta !== atleta.camiseta ? eCamiseta : undefined,
-      status:   eStatus   !== atleta.status   ? eStatus   : undefined,
-    });
+    const res = await editarInscricaoCompleta(atleta.registration_id, dados);
     if (res.ok) {
       await onRecarregar();
+      const prova = provas.find(p => p.id === f.race_id);
       // Atualiza o atleta local com os novos dados
-      setAtleta({ ...atleta, nome: eNome, email: eEmail, telefone: eTelefone, camiseta: eCamiseta, status: eStatus });
+      setAtleta({
+        ...atleta, nome: f.nome, cpf: f.cpf, nascimento: f.nascimento, sexo: f.sexo, email: f.email,
+        telefone: f.telefone, contato_emergencia: f.emergencia, race_id: f.race_id || atleta.race_id,
+        prova: prova?.label ?? atleta.prova, distancia: prova?.distancia_km ?? atleta.distancia,
+        camiseta: f.camiseta, camiseta_modelo: f.camiseta ? f.modelo : undefined,
+        status: f.status, bib_number: f.bib ? Number(f.bib) : null, categoria,
+      });
       setModoEdicao(false);
     } else {
       setEErro(res.erro ?? 'Erro ao salvar');
@@ -654,39 +722,105 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
               )}
 
               {/* ── MODO EDIÇÃO ── */}
-              {modoEdicao && (
+              {modoEdicao && form && (
                 <div className="space-y-4">
                   <div className="bg-brand-lilac rounded-xl p-3 text-[12px] text-brand-purple-dark">
-                    Edite os campos abaixo. Campos em branco não serão alterados.
+                    Só o que você alterar é gravado. A categoria é recalculada ao mudar sexo, nascimento ou prova.
                   </div>
 
+                  <div className="text-[11px] font-bold uppercase tracking-widest text-brand-muted">Atleta</div>
                   <div>
-                    <label className="label">Nome completo</label>
-                    <input id="edit-nome" className="input" value={eNome}
-                      onChange={e => setENome(e.target.value)} />
+                    <label className="label" htmlFor="edit-nome">Nome completo</label>
+                    <input id="edit-nome" className="input" value={form.nome}
+                      onChange={e => setCampo('nome', e.target.value)} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="label" htmlFor="edit-cpf">CPF</label>
+                      <input id="edit-cpf" className="input" inputMode="numeric" value={formataCPF(form.cpf)}
+                        onChange={e => setCampo('cpf', soDigitos(e.target.value).slice(0, 11))} />
+                    </div>
+                    <div>
+                      <label className="label" htmlFor="edit-nascimento">Nascimento</label>
+                      <input id="edit-nascimento" type="date" className="input" value={form.nascimento}
+                        onChange={e => setCampo('nascimento', e.target.value)} />
+                    </div>
                   </div>
                   <div>
-                    <label className="label">E-mail</label>
-                    <input id="edit-email" type="email" className="input" value={eEmail}
-                      onChange={e => setEEmail(e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="label">Telefone</label>
-                    <input id="edit-telefone" className="input" value={eTelefone}
-                      onChange={e => setETelefone(e.target.value)}
-                      placeholder="(Deixe vazio para não alterar)" />
-                  </div>
-                  <div>
-                    <label className="label">Camiseta</label>
-                    <div className="flex gap-2 flex-wrap">
-                      {CAMISETAS.map(c => (
-                        <button key={c} type="button" id={`edit-camiseta-${c}`}
-                          onClick={() => setECamiseta(c)}
-                          className={`px-4 py-2 rounded-xl border-2 font-display font-bold text-[15px] transition-all ${
-                            eCamiseta === c
+                    <label className="label">Sexo</label>
+                    <div className="flex gap-2">
+                      {[['M', 'Masculino'], ['F', 'Feminino'], ['', 'Não informado']].map(([v, rotulo]) => (
+                        <button key={v || 'nd'} type="button" id={`edit-sexo-${v || 'nd'}`}
+                          onClick={() => setCampo('sexo', v)}
+                          className={`flex-1 py-2 rounded-xl border-2 font-semibold text-[13px] transition-all ${
+                            form.sexo === v
                               ? 'bg-brand-purple text-white border-brand-purple'
                               : 'bg-white text-brand-muted border-brand-lilac-mid hover:border-brand-purple'
-                          }`}>{c}</button>
+                          }`}>{rotulo}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="label" htmlFor="edit-email">E-mail</label>
+                    <input id="edit-email" type="email" className="input" value={form.email}
+                      onChange={e => setCampo('email', e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="label" htmlFor="edit-telefone">Telefone</label>
+                    <input id="edit-telefone" className="input" value={form.telefone}
+                      onChange={e => setCampo('telefone', e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="label" htmlFor="edit-emergencia">Contato de emergência</label>
+                    <input id="edit-emergencia" className="input" value={form.emergencia}
+                      onChange={e => setCampo('emergencia', e.target.value)} placeholder="Nome e telefone" />
+                  </div>
+
+                  <div className="text-[11px] font-bold uppercase tracking-widest text-brand-muted pt-2">Inscrição</div>
+                  <div className="grid grid-cols-[1fr_110px] gap-3">
+                    <div>
+                      <label className="label" htmlFor="edit-prova">Prova</label>
+                      <select id="edit-prova" className="input" value={form.race_id}
+                        onChange={e => setCampo('race_id', e.target.value)}>
+                        {!provas.some(p => p.id === form.race_id) && <option value={form.race_id}>{atleta.prova}</option>}
+                        {provas.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label" htmlFor="edit-bib">Nº de peito</label>
+                      <input id="edit-bib" className="input" inputMode="numeric" value={form.bib}
+                        onChange={e => setCampo('bib', soDigitos(e.target.value))} placeholder="—" />
+                    </div>
+                  </div>
+                  <div className="text-[12px] text-brand-muted -mt-2">
+                    Categoria: <strong className="text-brand-ink">{categoriaDoForm(form) ?? atleta.categoria}</strong>
+                    {form.race_id !== (atleta.race_id ?? '') && ' · o lote acompanha a prova nova (mesmo nome de lote)'}
+                  </div>
+                  <div>
+                    <label className="label">Modelo da camiseta</label>
+                    <div className="flex gap-2">
+                      {[['unissex', 'Unissex'], ['babylook', 'Baby Look']].map(([v, rotulo]) => (
+                        <button key={v} type="button" id={`edit-modelo-${v}`} disabled={!form.camiseta}
+                          onClick={() => setCampo('modelo', v)}
+                          className={`flex-1 py-2 rounded-xl border-2 font-semibold text-[13px] transition-all disabled:opacity-40 ${
+                            form.camiseta && form.modelo === v
+                              ? 'bg-brand-purple text-white border-brand-purple'
+                              : 'bg-white text-brand-muted border-brand-lilac-mid hover:border-brand-purple'
+                          }`}>{rotulo}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="label">Tamanho da camiseta</label>
+                    <div className="flex gap-2 flex-wrap">
+                      {['', ...CAMISETAS].map(c => (
+                        <button key={c || 'sem'} type="button" id={`edit-camiseta-${c || 'sem'}`}
+                          onClick={() => setCampo('camiseta', c)}
+                          className={`px-4 py-2 rounded-xl border-2 font-display font-bold text-[15px] transition-all ${
+                            form.camiseta === c
+                              ? 'bg-brand-purple text-white border-brand-purple'
+                              : 'bg-white text-brand-muted border-brand-lilac-mid hover:border-brand-purple'
+                          }`}>{c || 'Sem camiseta'}</button>
                       ))}
                     </div>
                   </div>
@@ -695,9 +829,9 @@ export default function GestaoInscricoes({ inscritos, onRecarregar, loading }: P
                     <div className="flex gap-2">
                       {STATUS_OPTIONS.map(s => (
                         <button key={s} type="button" id={`edit-status-${s}`}
-                          onClick={() => setEStatus(s)}
+                          onClick={() => setCampo('status', s)}
                           className={`flex-1 py-2 rounded-xl border-2 font-semibold text-[13px] capitalize transition-all ${
-                            eStatus === s
+                            form.status === s
                               ? s === 'confirmado' ? 'bg-green-600 text-white border-green-600'
                               : s === 'cancelado'  ? 'bg-red-500 text-white border-red-500'
                               : 'bg-yellow-400 text-brand-ink border-yellow-400'
