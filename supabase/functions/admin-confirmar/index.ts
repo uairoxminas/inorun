@@ -1,6 +1,7 @@
 // supabase/functions/admin-confirmar/index.ts
 // Edge Function: confirmação/rejeição manual de comprovante pelo admin
 // Chama confirmar_inscricao_manual (RPC) + envia email ao atleta
+// acao "reenviar": só reenvia o email de confirmação, sem alterar a inscrição nem o número de peito
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -20,35 +21,45 @@ serve(async (req) => {
   try {
     const { registration_id, acao } = await req.json();
 
-    if (!registration_id || !["confirmar", "rejeitar"].includes(acao)) {
+    if (!registration_id || !["confirmar", "rejeitar", "reenviar"].includes(acao)) {
       return json({ ok: false, error: "Dados inválidos" }, 400);
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE);
 
-    // 1. Chama a função do banco
-    const { data, error } = await supabase.rpc("confirmar_inscricao_manual", {
-      p_registration_id: registration_id,
-      p_acao: acao,
-    });
+    // 1. Chama a função do banco (reenviar não altera nada)
+    let bib_number: number | null = null;
+    if (acao !== "reenviar") {
+      const { data, error } = await supabase.rpc("confirmar_inscricao_manual", {
+        p_registration_id: registration_id,
+        p_acao: acao,
+      });
 
-    if (error || data?.error) {
-      return json({ ok: false, error: error?.message || data?.error }, 200);
+      if (error || data?.error) {
+        return json({ ok: false, error: error?.message || data?.error }, 200);
+      }
+
+      bib_number = data?.bib_number ?? null;
+      console.log("[admin-confirmar] RPC ok, bib_number:", bib_number);
     }
-
-    const bib_number: number | null = data?.bib_number ?? null;
-    console.log("[admin-confirmar] RPC ok, bib_number:", bib_number);
 
     // 2. Busca dados do atleta para o email
     const { data: reg, error: regErr } = await supabase
       .from("vw_inscritos")
-      .select("nome, email, prova, categoria, preco_centavos, valor_pago, taxa_paga")
+      .select("nome, email, prova, categoria, preco_centavos, valor_pago, taxa_paga, bib_number, status")
       .eq("registration_id", registration_id)
       .single();
 
     if (regErr || !reg) {
       console.error("[admin-confirmar] vw_inscritos falhou:", regErr?.message);
       return json({ ok: true, bib_number, email_sent: false }, 200);
+    }
+
+    if (acao === "reenviar") {
+      if (reg.status !== "confirmado" || !reg.bib_number) {
+        return json({ ok: false, error: "Só é possível reenviar o email de inscrições confirmadas." }, 200);
+      }
+      bib_number = reg.bib_number;
     }
 
     // Valor realmente cobrado: inscrição (já com cupom) + taxa. Sem pagamento registrado, usa o preço do lote.
@@ -58,7 +69,7 @@ serve(async (req) => {
     });
 
     let email_sent = false;
-    if (acao === "confirmar" && bib_number) {
+    if ((acao === "confirmar" || acao === "reenviar") && bib_number) {
       email_sent = await sendEmail(
         reg.email,
         `✅ Inscrição confirmada! INO RUN 2026 — ${reg.prova}`,
