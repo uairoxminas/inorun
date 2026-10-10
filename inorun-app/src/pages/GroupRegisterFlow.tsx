@@ -11,7 +11,7 @@ import { MIN_GRUPO, calcResumoGrupo } from '../lib/precoGrupo';
 import { tamanhosDisponiveis } from '../lib/camisetas';
 import { grupoAberto } from '../lib/ultimaChamada';
 import TabelaMedidasModal from '../components/TabelaMedidasModal';
-import { getEventoPublico } from '../services/eventoService';
+import { getEventoPublico, getLoteAtivo } from '../services/eventoService';
 import type { EventoData } from '../services/eventoService';
 import {
   criarInscricaoGrupo, uploadComprovanteGrupo, registrarComprovanteGrupo,
@@ -193,6 +193,10 @@ export default function GroupRegisterFlow({ onBack, onDone }: Props) {
     </div>
   );
 
+  // A inscrição individual pode já ter encerrado (nenhum lote vigente em nenhuma
+  // prova) — nesse caso não adianta mandar o atleta para o fluxo individual.
+  const individualAberta = !!evento?.races.some(r => getLoteAtivo(evento.lots, r.id));
+
   // Grupo encerra em 05/10. Quem já criou o grupo (step 3+) ainda consegue enviar o comprovante.
   if (!grupoAberto() && step < 3) return (
     <div className="bg-brand-bg text-brand-ink font-sans min-h-screen">
@@ -206,8 +210,17 @@ export default function GroupRegisterFlow({ onBack, onDone }: Props) {
             Inscrições em grupo encerradas
           </div>
           <p className="text-[14px] text-red-700 mt-2">
-            As inscrições em grupo encerraram em <strong>05/10</strong>. A inscrição individual segue aberta
-            até <strong>10/10</strong> pelo lote Última Chamada — sem camisa e sem plaquinha personalizada.
+            {individualAberta ? (
+              <>
+                As inscrições em grupo encerraram em <strong>05/10</strong>. A inscrição individual segue aberta
+                pelo lote Última Chamada — sem camisa e sem plaquinha personalizada.
+              </>
+            ) : (
+              <>
+                As inscrições para a INO RUN 2026 estão <strong>encerradas</strong>, tanto em grupo quanto
+                individuais. Nos vemos em <strong>11/10</strong>, em Paraopeba!
+              </>
+            )}
           </p>
         </div>
         <button onClick={onBack} className="btn-primary w-full mt-6 text-[18px] py-4">Voltar ao site</button>

@@ -129,8 +129,18 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
   const raceCaminhada = evento?.races.find(r => r.tipo === 'caminhada');
   const lote5k      = race5k      ? getLoteAtivo(evento!.lots, race5k.id)      : null;
   const lote10k     = race10k     ? getLoteAtivo(evento!.lots, race10k.id)     : null;
-  // loteKids: Kids é gratuito — preço não exibido no card público
+  // loteKids: Kids é gratuito — preço não exibido no card público, mas o lote
+  // ainda define se a inscrição está aberta.
+  const loteKids    = raceKids    ? getLoteAtivo(evento!.lots, raceKids.id)    : null;
   const loteCaminhada = raceCaminhada ? getLoteAtivo(evento!.lots, raceCaminhada.id) : null;
+
+  // Sem nenhum lote vigente, as inscrições estão encerradas: a página não deve
+  // anunciar preço nem oferecer chamada para inscrição (o RegisterFlow já bloqueia
+  // o avanço, mas o atleta só descobriria depois de clicar).
+  // Enquanto o evento carrega, assume aberto para não piscar "encerradas" na tela.
+  const inscricoesAbertas = loadingEvento
+    ? true
+    : !!(lote5k || lote10k || loteKids || loteCaminhada);
 
   // Filtro de categorias dinâmico — derivado dos resultados carregados do banco
   const categoriasDisponiveis = [
@@ -159,10 +169,17 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
 
           {/* Mobile direita: hambúrguer + inscreva-se */}
           <div className="flex items-center gap-2 md:hidden">
-            <button id="nav-inscreva-se-mobile" onClick={onRegister}
-              className="btn-primary text-xs py-2 px-3">
-              Inscreva-se
-            </button>
+            {inscricoesAbertas ? (
+              <button id="nav-inscreva-se-mobile" onClick={onRegister}
+                className="btn-primary text-xs py-2 px-3">
+                Inscreva-se
+              </button>
+            ) : (
+              <span id="nav-encerradas-mobile"
+                className="text-[11px] font-bold uppercase text-orange-500 px-2 leading-tight text-center">
+                Inscrições<br />encerradas
+              </span>
+            )}
             <button id="btn-menu-mobile" onClick={() => setMenuAberto(v => !v)}
               aria-label="Menu"
               className="p-2 rounded-xl text-brand-ink hover:bg-brand-lilac transition-colors">
@@ -179,9 +196,16 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
           </div>
 
           {/* Desktop inscreva-se */}
-          <button id="nav-inscreva-se" onClick={onRegister} className="btn-primary text-sm py-2.5 px-5 hidden md:block">
-            Inscreva-se
-          </button>
+          {inscricoesAbertas ? (
+            <button id="nav-inscreva-se" onClick={onRegister} className="btn-primary text-sm py-2.5 px-5 hidden md:block">
+              Inscreva-se
+            </button>
+          ) : (
+            <span id="nav-encerradas"
+              className="hidden md:block text-sm font-bold uppercase text-orange-500 py-2.5 px-5">
+              Inscrições encerradas
+            </span>
+          )}
         </div>
 
         {/* Mobile dropdown menu */}
@@ -206,12 +230,14 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
                 className="flex items-center gap-3 px-4 py-3 rounded-xl text-brand-ink font-medium text-[15px] hover:bg-brand-lilac hover:text-brand-purple transition-colors text-left w-full">
                 Resultados
               </button>
-              <div className="border-t border-brand-lilac-mid mt-2 pt-3">
-                <button id="btn-menu-mobile-inscrever" onClick={() => { setMenuAberto(false); onRegister(); }}
-                  className="btn-primary w-full py-3 text-[16px]">
-                  🏃 Inscreva-se agora
-                </button>
-              </div>
+              {inscricoesAbertas && (
+                <div className="border-t border-brand-lilac-mid mt-2 pt-3">
+                  <button id="btn-menu-mobile-inscrever" onClick={() => { setMenuAberto(false); onRegister(); }}
+                    className="btn-primary w-full py-3 text-[16px]">
+                    🏃 Inscreva-se agora
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -267,14 +293,28 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
           </div>
 
           <div className="mt-8 flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-4">
-            <button id="hero-garantir-vaga" onClick={onRegister} className="btn-primary text-[18px] md:text-xl px-9 py-4 w-full sm:w-auto">
-              Garantir vaga
-            </button>
-            {onRegisterGrupo && grupoAberto() && (
-              <button id="hero-inscricao-grupo" onClick={onRegisterGrupo}
-                className="btn-outline text-[16px] md:text-lg px-7 py-4 w-full sm:w-auto">
-                👥 Inscrição em grupo
-              </button>
+            {inscricoesAbertas ? (
+              <>
+                <button id="hero-garantir-vaga" onClick={onRegister} className="btn-primary text-[18px] md:text-xl px-9 py-4 w-full sm:w-auto">
+                  Garantir vaga
+                </button>
+                {onRegisterGrupo && grupoAberto() && (
+                  <button id="hero-inscricao-grupo" onClick={onRegisterGrupo}
+                    className="btn-outline text-[16px] md:text-lg px-7 py-4 w-full sm:w-auto">
+                    👥 Inscrição em grupo
+                  </button>
+                )}
+              </>
+            ) : (
+              <div id="hero-inscricoes-encerradas"
+                className="bg-white/95 border-2 border-orange-400 rounded-2xl px-7 py-4 w-full sm:w-auto">
+                <div className="font-display font-extrabold italic uppercase text-[20px] md:text-[24px] text-orange-600 leading-none">
+                  Inscrições encerradas
+                </div>
+                <div className="text-[13px] text-brand-muted mt-1.5">
+                  Nos vemos no dia 11/10 em Paraopeba! 🏃
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -305,13 +345,15 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
               {race5k && (
                 <ProvaCard id="5km" km="5" label={race5k.label} tag="Iniciante"
                   desc={race5k.descricao}
-                  preco={lote5k?.preco_centavos ?? 9900}
+                  preco={lote5k?.preco_centavos ?? 0}
+                  encerrado={!lote5k}
                   onInscrever={onRegister} />
               )}
               {race10k && (
                 <ProvaCard id="10km" km="10" label={race10k.label} tag="Performance"
                   desc={race10k.descricao}
-                  preco={lote10k?.preco_centavos ?? 9900}
+                  preco={lote10k?.preco_centavos ?? 0}
+                  encerrado={!lote10k}
                   onInscrever={onRegister} />
               )}
             </div>
@@ -319,8 +361,8 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
             {/* Kids e Caminhada — sempre visíveis (fallback estático se não estiver no banco ainda) */}
             <div className="grid gap-5 md:grid-cols-2">
               {/* Card Kids */}
-              <button id="card-prova-kids" onClick={onRegister}
-                className="text-left p-5 rounded-2xl border-2 border-yellow-400 bg-yellow-50 hover:shadow-md transition-all duration-150 group">
+              <button id="card-prova-kids" onClick={onRegister} disabled={!loteKids}
+                className="text-left p-5 rounded-2xl border-2 border-yellow-400 bg-yellow-50 hover:shadow-md transition-all duration-150 group disabled:cursor-default disabled:hover:shadow-none">
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <span className="text-[11px] font-bold tracking-widest uppercase text-yellow-700">🎖️ Kids · até 12 anos · 300m</span>
@@ -329,11 +371,19 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-[10px] text-yellow-700">inscrição</div>
-                    <div className="font-display font-extrabold text-[22px] text-green-600">
-                      Gratuita 🎖️
-                    </div>
-                    <div className="text-[10px] text-yellow-600">+ R$5,00 taxa</div>
+                    {loteKids ? (
+                      <>
+                        <div className="text-[10px] text-yellow-700">inscrição</div>
+                        <div className="font-display font-extrabold text-[22px] text-green-600">
+                          Gratuita 🎖️
+                        </div>
+                        <div className="text-[10px] text-yellow-600">+ R$5,00 taxa</div>
+                      </>
+                    ) : (
+                      <div className="font-display font-extrabold text-[15px] text-orange-500 uppercase italic leading-tight">
+                        Inscrições<br />encerradas
+                      </div>
+                    )}
                   </div>
                 </div>
                 <p className="text-[13px] text-yellow-800 leading-relaxed">
@@ -350,8 +400,8 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
               </button>
 
               {/* Card Caminhada */}
-              <button id="card-prova-caminhada" onClick={onRegister}
-                className="text-left p-5 rounded-2xl border-2 border-green-400 bg-green-50 hover:shadow-md transition-all duration-150 group">
+              <button id="card-prova-caminhada" onClick={onRegister} disabled={!loteCaminhada}
+                className="text-left p-5 rounded-2xl border-2 border-green-400 bg-green-50 hover:shadow-md transition-all duration-150 group disabled:cursor-default disabled:hover:shadow-none">
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <span className="text-[11px] font-bold tracking-widest uppercase text-green-700">🚶 Caminhada · Idade livre</span>
@@ -360,10 +410,18 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-[10px] text-green-700">a partir de</div>
-                    <div className="font-display font-extrabold text-[22px] text-green-700">
-                      {formataBRL(loteCaminhada?.preco_centavos ?? 9900)}
-                    </div>
+                    {loteCaminhada ? (
+                      <>
+                        <div className="text-[10px] text-green-700">a partir de</div>
+                        <div className="font-display font-extrabold text-[22px] text-green-700">
+                          {formataBRL(loteCaminhada.preco_centavos)}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="font-display font-extrabold text-[15px] text-orange-500 uppercase italic leading-tight">
+                        Inscrições<br />encerradas
+                      </div>
+                    )}
                   </div>
                 </div>
                 <p className="text-[13px] text-green-800 leading-relaxed">
@@ -421,12 +479,14 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
           <p className="text-white/80 mt-3 text-[14px] leading-relaxed max-w-[480px]">
             Venha fazer parte dessa história e cruzar a linha de chegada com a camiseta que vai marcar sua memória.
           </p>
-          <button
-            onClick={onRegister}
-            className="mt-6 bg-brand-yellow text-brand-ink font-display font-extrabold italic uppercase px-8 py-3.5 rounded-2xl text-[16px] md:text-[18px] hover:scale-105 transition-transform duration-200 shadow-lg w-full sm:w-auto self-start"
-          >
-            Garantir minha vaga →
-          </button>
+          {inscricoesAbertas && (
+            <button
+              onClick={onRegister}
+              className="mt-6 bg-brand-yellow text-brand-ink font-display font-extrabold italic uppercase px-8 py-3.5 rounded-2xl text-[16px] md:text-[18px] hover:scale-105 transition-transform duration-200 shadow-lg w-full sm:w-auto self-start"
+            >
+              Garantir minha vaga →
+            </button>
+          )}
         </div>
       </section>
 
@@ -438,9 +498,13 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
               <Eyebrow>Preço sobe por lote</Eyebrow>
               <h3 className="font-display font-extrabold italic uppercase text-[26px] mt-1.5 text-brand-ink">Lotes de inscrição</h3>
             </div>
-            {lote5k && (
+            {lote5k ? (
               <span className="badge-lot-active">
                 ⏰ {lote5k.nome} encerra em {new Date(lote5k.fecha_em).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+              </span>
+            ) : (
+              <span className="inline-block bg-orange-100 text-orange-700 border border-orange-300 font-bold text-[13px] px-3 py-1.5 rounded-full">
+                🔒 Inscrições encerradas
               </span>
             )}
           </div>
@@ -550,13 +614,17 @@ export default function PublicSite({ onRegister, onRegisterGrupo, onAdmin, onEve
             Sinta a energia da chegada
           </h2>
           <p className="text-white/70 mt-4 text-base max-w-md mx-auto">
-            {kitCompletoDisponivel()
-              ? 'Vagas limitadas. Inscreva-se até 05/10 para garantir camisa e plaquinha personalizada.'
-              : 'Vagas limitadas. Inscrições até 10/10, sem camisa e sem plaquinha personalizada.'}
+            {!inscricoesAbertas
+              ? 'As inscrições para a INO RUN 2026 estão encerradas. Nos vemos em 11/10, em Paraopeba!'
+              : kitCompletoDisponivel()
+                ? 'Vagas limitadas. Inscreva-se até 05/10 para garantir camisa e plaquinha personalizada.'
+                : 'Vagas limitadas. Inscrições até 10/10, sem camisa e sem plaquinha personalizada.'}
           </p>
-          <button id="cta-quero-correr" onClick={onRegister} className="mt-8 btn-accent text-xl px-10 py-4">
-            Quero correr
-          </button>
+          {inscricoesAbertas && (
+            <button id="cta-quero-correr" onClick={onRegister} className="mt-8 btn-accent text-xl px-10 py-4">
+              Quero correr
+            </button>
+          )}
         </div>
       </section>
 

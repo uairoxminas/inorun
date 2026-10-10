@@ -8,7 +8,10 @@ interface ProvaCardProps {
   label: string;
   tag: string;
   desc: string;
+  /** Preço do lote vigente. Ignorado quando `encerrado` é true. */
   preco: number;
+  /** Sem lote vigente: esconde o preço e desativa a chamada para inscrição. */
+  encerrado?: boolean;
   onInscrever: () => void;
 }
 
@@ -42,6 +45,7 @@ export default function ProvaCard({
   tag,
   desc,
   preco,
+  encerrado = false,
   onInscrever,
 }: ProvaCardProps) {
   return (
@@ -80,14 +84,24 @@ export default function ProvaCard({
         {/* Rodapé */}
         <div className="flex justify-between items-end mt-6">
           <div className="flex flex-col">
-            <span className="text-xs text-brand-muted">a partir de</span>
-            <span className="font-display font-extrabold text-[28px] text-brand-purple leading-none">
-              {formataBRL(preco)}
-            </span>
+            {encerrado ? (
+              <span className="font-display font-extrabold text-[20px] text-orange-500 leading-none uppercase italic">
+                Inscrições encerradas
+              </span>
+            ) : (
+              <>
+                <span className="text-xs text-brand-muted">a partir de</span>
+                <span className="font-display font-extrabold text-[28px] text-brand-purple leading-none">
+                  {formataBRL(preco)}
+                </span>
+              </>
+            )}
           </div>
-          <button className="btn-primary text-base" onClick={onInscrever}>
-            Inscrever-se
-          </button>
+          {!encerrado && (
+            <button className="btn-primary text-base" onClick={onInscrever}>
+              Inscrever-se
+            </button>
+          )}
         </div>
       </div>
     </div>
