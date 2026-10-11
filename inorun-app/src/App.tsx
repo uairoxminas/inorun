@@ -16,7 +16,7 @@ type View = 'site' | 'register' | 'grupo' | 'admin';
 
 
 // ── Botão flutuante WhatsApp — renderizado direto no body via portal ──────────
-const WA_NUMBER  = '5548996459791';
+const WA_NUMBER  = '5531989478450';
 const WA_MESSAGE = encodeURIComponent('Olá! Preciso de ajuda com minha inscrição no INO RUN 2026. 🏃');
 const WA_LINK    = `https://wa.me/${WA_NUMBER}?text=${WA_MESSAGE}`;
 
@@ -202,8 +202,8 @@ function AppInner() {
           Feito com amor <span aria-hidden>❤️</span> por{' '}
           <span className="font-semibold text-brand-ink">Always Profit</span>
           {' · '}Contato:{' '}
-          <a href="https://wa.me/5548996459791" target="_blank" rel="noopener noreferrer"
-            className="text-brand-purple font-medium hover:underline">(48) 99645-9791</a>
+          <a href="https://wa.me/5531989478450" target="_blank" rel="noopener noreferrer"
+            className="text-brand-purple font-medium hover:underline">(31) 98947-8450</a>
         </div>
       </div>
 
